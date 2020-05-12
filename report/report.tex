@@ -1,0 +1,129 @@
+% !TeX spellcheck = en_US
+\documentclass[sigconf,nonacm]{acmart}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{color}
+\newcounter{nalg}
+\renewcommand{\thenalg}{\arabic{nalg}}
+\DeclareCaptionLabelFormat{algocaption}{Algorithm \thenalg}
+
+\lstnewenvironment{algorithm}[1][]
+{   
+    \refstepcounter{nalg}
+    \captionsetup{labelformat=algocaption,labelsep=colon}
+    \lstset{
+        mathescape=true,
+        frame=tB,
+        numbers=left, 
+        numberstyle=\tiny,
+        basicstyle=\scriptsize, 
+        keywordstyle=\color{black}\bfseries\em,
+        keywords={,input, output, return, datatype, function, in, true, false, if, then, else, for, to, all, do, foreach, while, begin, end, }
+        numbers=left,
+        xleftmargin=.04\textwidth,
+        #1 
+    }
+}
+{}
+\settopmatter{printacmref=false}
+\pagestyle{empty}
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+\copyrightyear{2020}
+\acmYear{2020}
+\setcopyright{rightsretained}
+\begin{document}
+\title{Group 1: Distributed Minimum Spanning Tree}
+\subtitle{Prim's algorithm in C++, CUDA, CUDA Streaming and Thrust}
+\author{Christian Kastner}
+\email{christian.kastner@student.tuwien.ac.at}
+\affiliation{Mat.Nr. 00100168}
+\author{Adrian Tobisch}
+\email{e1227508@student.tuwien.ac.at}
+\affiliation{Mat.Nr. 01227508}
+\author{Helmuth Breitenfellner}
+\email{helmuth.breitenfellner@student.tuwien.ac.at}
+\affiliation{Mat.Nr. 08725866}
+\begin{abstract}
+In this task we have been working on efficient implementations of
+parallelized versions of Prim's algorithm (1957, \cite{prim1957}) for finding the Minimum Spanning Tree.
+As a benchmark a sequential version, writting in plain C++, was compared.
+\end{abstract}
+\keywords{Prim, Minimum Spanning Tree, CUDA, C++, Thrust}
+\maketitle
+\section{Task description}
+
+In this project we have implemented the following steps:
+\begin{enumerate}
+\item Base C++ classes for input/output
+\item Graph generator, written in C++
+\item Sequential version of Prim's algorithm
+\item CUDA version of Prim's algorithm
+\item Thrust implementation of Prim's algorithm
+\item CUDA streaming version of Prim's algorithm
+\item Runtime performance analysis
+\end{enumerate}
+
+\subsection{Base C++ classes}
+
+We started with implementing a base C++ class \texttt{Graph},
+which encapsulates functions like file input/output, counting the edges,
+and storing the graph data.
+It also has a flag specifying whether the graph shall be directed or
+undirected.
+
+This base class was used as the interface for all further implementations
+of Prim's algorithm.
+
+We also tried to consistently add unit tests to all functionality,
+based on the \texttt{doctest} mini-framework.
+
+\subsection{Graph generator}
+
+The graph generator is creating a graph, with provided size (number of vertices),
+density (approximate ratio of existing vs. possible edges), and the weight range.
+Also a flag can be specified whether the graph shall be directed or undirected.
+
+\subsection{Sequential version}
+
+The sequential version is implementing the following pseudo code:
+\begin{algorithm}[caption={Sequential Prim}, label={prim:cpu}]
+MST-Prim(G, r):
+for all v $\in$ G.V do
+  in_MST[v] $\gets$ false
+  distance[v] $\gets \infty$
+  predecessor[v] $\gets$ null
+end for
+result_MST $\gets \emptyset$
+in_MST[r] $\gets$ true
+distance[r] $\gets$ 0
+for all v $\in$ G.adj[r] do
+  distance[v] $\gets$ G.weight[v,r]
+  predecessor[v] $\gets$ r
+end for
+for i $\gets$ 1 to n-1 do
+  v_next $\gets$ nearest_vertex(G, distance, in_MST)
+  in_MST[v_next] $\gets$ true
+  if predecessor[v_next] $\ne$ null then
+    add edge(predecessor[v_next], v_next) to result_MST
+  end if
+  for all v $\in$ G.adj[v_next] do
+    if v $\notin$ resultMST then
+      if distance[v] > G.weight[v_next, v] then
+        distance[v] $\gets$ G.weight[v_next, v]
+        predecessor[v] $\gets$ v_next
+      end if
+    end if
+  end for
+end for
+\end{algorithm}
+
+\subsection{CUDA version of Prim's algorithm}
+\subsection{Thrust implementation of Prim's algorithm}
+\subsection{CUDA streaming version of Prim's algorithm}
+\subsection{Runtime performance analysis}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{report}
+\end{document}

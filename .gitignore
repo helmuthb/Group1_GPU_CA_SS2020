@@ -5,3 +5,13 @@ base/test/test_generator
 base/test/test_graph
 cpu-version/cpu_prim
 cpu-version/test/test_cpu_prim
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.aux
+*.synctex.gz
+report/report.pdf
