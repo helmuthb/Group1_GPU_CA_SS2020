@@ -1,6 +1,7 @@
 #include <stdexcept>
 #include <iostream>
-#include <bits/stdc++.h>
+#include <random>
+// #include <bits/stdc++.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,17 +13,14 @@
 const static int MAX_NODES = 100000;
 
 /**
- * Helper function: return random number from 0 to 1 (exclusive)
- */
-static double rnum() {
-    return double(rand()) / RAND_MAX;
-}
-
-/**
  * Generate a graph with defined number of vertices, range of edge weight, density.
  */
 Graph generator(int num_vertices, int min_weight, int max_weight, float density, bool directed) {
     Graph g(num_vertices, directed);
+    // random number generator
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+
     // check num_nodes
     if (num_vertices <= 0 || num_vertices > MAX_NODES) {
         throw new std::out_of_range("Maximum number of nodes exceeded");
@@ -35,14 +33,23 @@ Graph generator(int num_vertices, int min_weight, int max_weight, float density,
     if (density <= 0 || density >=1) {
         throw new std::out_of_range("Density range exceeded");
     }
-    int weight_range = max_weight - min_weight + 1;
-    // loop through possible edges, i < j
-    for (int i=0; i<num_vertices; i++) {
-        int j0 = (g.is_directed() ? 0 : i+1);
-        for (int j=j0; j<num_vertices; j++) {
-            bool edge_exists = rnum() < density;
-            unsigned int w = edge_exists ? min_weight + rnum()*weight_range : Graph::WEIGHT_INFTY;
-            g.set(i, j, w);
+    // calculate desired number of edges
+    long long nv_l = (long long)num_vertices;
+    long long max_edges = directed?(nv_l*(nv_l-1)):(nv_l*(nv_l-1)/2);
+    int num_edges = max_edges*density;
+    // Using algorithm of Floyd to get this number of edges
+    for (long long j=max_edges-num_edges; j<max_edges; j++) {
+        // draw random v in range (0, j)
+        long long v = std::uniform_int_distribution<long long>(0, j)(gen);
+        // weight we will use
+        unsigned int w = std::uniform_int_distribution<>(min_weight, max_weight)(gen);
+        // is the edge v not yet added?
+        if (g(v) == Graph::WEIGHT_INFTY) {
+            g.set(v, w);
+        }
+        // otherwise add edge j - it cannot have been added yet
+        else {
+            g.set(j, w);
         }
     }
     return g;

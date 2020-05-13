@@ -20,6 +20,43 @@ void Graph::set(int x, int y, int wNew) {
     }
 }
 
+void Graph::set(unsigned long long p, int wNew) {
+    int x, y;
+    getEdge(p, x, y);
+    set(x, y, wNew);
+}
+
+void Graph::getEdge(unsigned long long p, int& x, int& y) const {
+    if (directed) {
+        if (p < 0 || p >= n*(n-1)) {
+            throw new std::out_of_range("Maximum number of edges exceeded");
+        }
+        y = p / (n-1);
+        x = p % (n-1);
+        if (x >= y) {
+            x++;
+        }
+    }
+    else {
+        if (p < 0 || p >= n*(n-1)/2) {
+            throw new std::out_of_range("Maximum number of edges exceeded");
+        }
+        y = p / (n-1);
+        x = p % (n-1);
+        if (x >= y) {
+            x = n - x - 2;
+            y = n - y - 1;
+        }
+    }
+}
+
+int Graph::operator() (unsigned long long p) const {
+    int x, y;
+    const Graph& t = *this;
+    getEdge(p, x, y);
+    return t(x, y);
+}
+
 std::ostream& operator<< (std::ostream& os, const Graph& g) {
     // header line
     os << "H " << g.num_vertices() << " " << g.num_edges() << " "

@@ -22,6 +22,25 @@ TEST_CASE("adding an edge in an undirected graph") {
     CHECK(g.num_edges() == 1);
 }
 
+TEST_CASE("adding all possible edges of an undirected graph") {
+    Graph g(10, false);
+    for (int i=0; i<10*9/2; i++) {
+        g.set(i, 1);
+    }
+    CHECK(g(0,1) == 1);
+    CHECK(g.num_edges() == 45);
+}
+
+
+TEST_CASE("adding all possible edges of a directed graph") {
+    Graph g(10, true);
+    for (int i=0; i<10*9; i++) {
+        g.set(i, 1);
+    }
+    CHECK(g(0,1) == 1);
+    CHECK(g.num_edges() == 90);
+}
+
 TEST_CASE("adding an edge in a directed graph") {
     Graph g(10, true);
     g.set(1, 2, 5);
