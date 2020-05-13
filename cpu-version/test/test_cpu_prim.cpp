@@ -11,11 +11,11 @@ TEST_CASE("find next vertex") {
     g.set(1, 3, 8);
     bool v[4] = { true, false, false, false };
     int d[4] = {0, 4, 7, 8};
-    CHECK(nearestVertex(g, d, v) == 1);
+    CHECK(cpuNearestVertex(g, d, v) == 1);
     v[1] = true; 
-    CHECK(nearestVertex(g, d, v) == 2);
+    CHECK(cpuNearestVertex(g, d, v) == 2);
     d[2] = 9;
-    CHECK(nearestVertex(g, d, v) == 3);
+    CHECK(cpuNearestVertex(g, d, v) == 3);
 }
 
 TEST_CASE("prim for tiny graph") {
@@ -29,7 +29,7 @@ TEST_CASE("prim for tiny graph") {
     g.set(2,4,1);
     g.set(3,4,4);
     g.set(4,5,5);
-    Graph mst = primAlgorithm(g);
+    Graph mst = cpuPrimAlgorithm(g);
     CHECK(mst.num_vertices() == 6);
     CHECK(mst.num_edges() == 5);
     CHECK(mst(0,1) == 1);
@@ -64,7 +64,7 @@ TEST_CASE("prim for small graph") {
     g.set(7, 8, 1);
     g.set(7, 9, 4);
     g.set(8, 9, 3);
-    Graph mst = primAlgorithm(g);
+    Graph mst = cpuPrimAlgorithm(g);
     CHECK(mst.num_vertices() == 10);
     CHECK(mst.num_edges() == 9);
     CHECK(mst(0, 1) == 3);

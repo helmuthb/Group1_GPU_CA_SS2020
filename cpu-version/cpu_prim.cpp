@@ -1,7 +1,7 @@
 #include "graph.hpp"
 #include "cpu_prim.hpp"
 
-int nearestVertex(const Graph& g, const int d[], const bool v[]) {
+int cpuNearestVertex(const Graph& g, const int d[], const bool v[]) {
     int min_d = Graph::WEIGHT_INFTY;
     int min_i = -1;
     for (int i=0; i<g.num_vertices(); i++) {
@@ -13,7 +13,7 @@ int nearestVertex(const Graph& g, const int d[], const bool v[]) {
     return min_i;
 }
 
-Graph primAlgorithm(const Graph& g) {
+Graph cpuPrimAlgorithm(const Graph& g) {
     int n = g.num_vertices();
     // store the vertices found so far, the distances & the predecessors
     bool *v = new bool[n];
@@ -41,7 +41,7 @@ Graph primAlgorithm(const Graph& g) {
     // outer while loop: till we have n vertices
     while (cnt < n) {
         // find vertex with minimum distance
-        int v_next = nearestVertex(g, d, v);
+        int v_next = cpuNearestVertex(g, d, v);
         if (v_next < 0) {
             throw new std::runtime_error("Did not find any vertex");
         }

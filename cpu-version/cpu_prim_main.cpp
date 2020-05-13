@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
     Graph g;
     std::cin >> g;
     // calculate mst
-    Graph mst = primAlgorithm(g);
+    Graph mst = cpuPrimAlgorithm(g);
     // output MST
     std::cout << mst;
 }

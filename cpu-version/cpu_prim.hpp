@@ -6,14 +6,14 @@
 #include <vector>
 
 /**
- * Find nearest vertex which is not yet in the set of
- * vertices identified by the bitset v
+ * Internal function: find the nearest vertex outside the
+ * subgraph identified so far
  */
-int nearestVertex(const Graph& g, const int d[], const bool v[]);
+int cpuNearestVertex(const Graph& g, const int d[], const bool v[]);
 
 /**
  * Prim's algorithm
  */
-Graph primAlgorithm(const Graph& g);
+Graph cpuPrimAlgorithm(const Graph& g);
 
 #endif
