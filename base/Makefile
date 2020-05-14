@@ -1,15 +1,19 @@
-CXXFLAGS = -Wall
+CXXFLAGS = -Wall -g
 
 all : generator check
 
-generator : generator_main.o generator.o graph.o
-	g++ generator_main.o generator.o graph.o -o generator
+generator : generator_main.o generator.o graph.o matrix_graph.o
+	g++ generator_main.o generator.o graph.o matrix_graph.o -o generator
 
 graph.o : graph.cpp graph.hpp
 
+matrix_graph.o : matrix_graph.cpp matrix_graph.hpp graph.hpp
+
+sparse_graph.o : sparse_graph.cpp sparse_graph.hpp graph.hpp
+
 generator.o : generator.cpp graph.hpp
 
-generator_main.o : generator.hpp graph.hpp
+generator_main.o : generator.hpp graph.hpp matrix_graph.hpp
 
-check : *.cpp
+check : *.cpp *.hpp graph.o matrix_graph.o sparse_graph.o generator.o
 	@cd test && make test

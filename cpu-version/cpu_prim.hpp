@@ -6,14 +6,8 @@
 #include <vector>
 
 /**
- * Internal function: find the nearest vertex outside the
- * subgraph identified so far
- */
-int cpuNearestVertex(const Graph& g, const int d[], const bool v[]);
-
-/**
  * Prim's algorithm
  */
-Graph cpuPrimAlgorithm(const Graph& g);
+void cpuPrimAlgorithm(const Graph& g, Graph& mst);
 
 #endif

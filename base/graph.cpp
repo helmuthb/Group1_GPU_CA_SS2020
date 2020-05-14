@@ -1,34 +1,16 @@
 #include "graph.hpp"
-#include <string>
-#include <stdexcept>
 
-const int Graph::WEIGHT_INFTY;
+const int32_t Graph::WEIGHT_INFTY;
 
-void Graph::set(int x, int y, int wNew) {
-    int i = idx(x,y);
-    int wOld = w[i];
-    if (wOld == WEIGHT_INFTY && wNew != WEIGHT_INFTY) {
-        m++;
-    }
-    else if (wOld != WEIGHT_INFTY && wNew == WEIGHT_INFTY) {
-        m--;
-    }
-    w[i] = wNew;
-    if (!directed) {
-        // set also other vertice for undirected graph
-        w[idx(y,x)] = wNew;
-    }
-}
-
-void Graph::set(unsigned long long p, int wNew) {
-    int x, y;
+void Graph::set(uint64_t p, int32_t wNew) {
+    uint32_t x, y;
     getEdge(p, x, y);
     set(x, y, wNew);
 }
 
-void Graph::getEdge(unsigned long long p, int& x, int& y) const {
+void Graph::getEdge(uint64_t p, uint32_t& x, uint32_t& y) const {
     if (directed) {
-        if (p < 0 || p >= n*(n-1)) {
+        if (p >= n*(n-1)) {
             throw new std::out_of_range("Maximum number of edges exceeded");
         }
         y = p / (n-1);
@@ -38,7 +20,7 @@ void Graph::getEdge(unsigned long long p, int& x, int& y) const {
         }
     }
     else {
-        if (p < 0 || p >= n*(n-1)/2) {
+        if (p >= n*(n-1)/2) {
             throw new std::out_of_range("Maximum number of edges exceeded");
         }
         y = p / (n-1);
@@ -50,11 +32,49 @@ void Graph::getEdge(unsigned long long p, int& x, int& y) const {
     }
 }
 
-int Graph::operator() (unsigned long long p) const {
-    int x, y;
+int32_t Graph::operator() (uint64_t p) const {
+    uint32_t x, y;
     const Graph& t = *this;
     getEdge(p, x, y);
     return t(x, y);
+}
+
+std::vector<std::pair<uint32_t, int32_t>> Graph::neighbors(uint32_t x) const {
+    const Graph& t = *this;
+    std::vector<std::pair<uint32_t, int32_t>> list;
+    for (uint32_t i=0; i<n; i++) {
+        int32_t weight = t(x,i);
+        if (weight != WEIGHT_INFTY) {
+            list.push_back(std::pair<uint32_t, int32_t>(i, weight));
+        }
+    }
+    return list;
+}
+
+void Graph::neighbors(uint32_t x, std::vector<EdgeTarget>& list) const {
+    const Graph& t = *this;
+    for (uint32_t i=0; i<n; i++) {
+        int32_t weight = t(x,i);
+        if (weight != WEIGHT_INFTY) {
+            list.push_back(EdgeTarget(i, weight));
+        }
+    }
+}
+
+void Graph::neighbors(uint32_t x, std::vector<std::pair<uint32_t, int32_t>>& list) const {
+    const Graph& t = *this;
+    for (uint32_t i=0; i<n; i++) {
+        int32_t weight = t(x,i);
+        if (weight != WEIGHT_INFTY) {
+            list.push_back(std::pair<uint32_t, int32_t>(i, weight));
+        }
+    }
+}
+
+void Graph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
+    n = n0;
+    m = 0;
+    directed = d_flag;
 }
 
 std::ostream& operator<< (std::ostream& os, const Graph& g) {
@@ -62,9 +82,9 @@ std::ostream& operator<< (std::ostream& os, const Graph& g) {
     os << "H " << g.num_vertices() << " " << g.num_edges() << " "
        << (g.is_directed()?"2":"1") << std::endl;
     // for each edge
-    for (int i=0; i<g.num_vertices(); i++) {
-        int j0 = (g.is_directed() ? 0 : i+1);
-        for (int j=j0; j<g.num_vertices(); j++) {
+    for (uint32_t i=0; i<g.num_vertices(); i++) {
+        uint32_t j0 = (g.is_directed() ? 0 : i+1);
+        for (uint32_t j=j0; j<g.num_vertices(); j++) {
             if (g(i,j) < Graph::WEIGHT_INFTY) {
                 os << "E " << i << " " << j << " " << g(i,j) << std::endl;
             }
@@ -80,18 +100,18 @@ std::istream& operator>> (std::istream& is, Graph& g) {
     if (word != "H") {
         throw new std::runtime_error("Graph file does not start with 'H'");
     }
-    int n, m, d_val;
+    uint32_t n, m, d_val;
     is >> n >> m >> d_val;
-    // create temporary new graph
-    Graph new_graph(n, (d_val==1)?false:true);
-    for (int i=0; i<m; i++) {
-        int x, y, w;
+    // resize graph
+    g.resize(n, m, d_val==2);
+    for (uint32_t i=0; i<m; i++) {
+        uint32_t x, y;
+        int32_t w;
         is >> word >> x >> y >> w;
         if (word != "E") {
             throw new std::runtime_error("Graph edge does not start with 'E'");
         }
-        new_graph.set(x, y, w);
+        g.set(x, y, w);
     }
-    g = new_graph;
     return is;
 }

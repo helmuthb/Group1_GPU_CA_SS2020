@@ -1,9 +1,20 @@
 #ifndef __GRAPH_HPP
 #define __GRAPH_HPP
 
-#include <vector>
 #include <iostream>
-#include <limits.h>
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+/**
+ * This is a struct for describing the target of an edge.
+ */
+struct EdgeTarget {
+    uint32_t vertex_to;
+    int32_t weight;
+    inline EdgeTarget() {};
+    inline EdgeTarget(uint32_t v, int32_t w) : vertex_to(v), weight(w) {};
+};
 
 /**
  * This is the base class to store, inspect & manipulate a graph.
@@ -22,36 +33,39 @@
  * The class uses no memory allocation, therefore the standard
  * assignment operator and copy constructor are safe.
  */
+
 class Graph {
-private:
+protected:
     // number of vertices & edges
-    unsigned int n, m;
+    uint32_t n, m;
     // flag whether the graph is directed or undirected
     bool directed;
-    // weights for each position
-    std::vector<int> w;
-    // get index for x,y in the vector
-    int idx(int x, int y) const { return x+n*y; }
     // more complex way to get x, y from the position in the
     // list of all possible edges
-    void getEdge (unsigned long long p, int& x, int& y) const;
+    void getEdge (uint64_t p, uint32_t& x, uint32_t& y) const;
 public:
     // WEIGHT_INFTY denotes a non-existing edge
-    static constexpr int WEIGHT_INFTY = INT_MAX;
+    static constexpr int32_t WEIGHT_INFTY = INT32_MAX;
     // operator(): to get the weight of an edge, in two variants
-    int operator() (int x, int y) const { return w[idx(x,y)]; }
-    int operator() (unsigned long long p) const;
+    virtual int operator() (uint32_t x, uint32_t y) const = 0;
+    virtual int operator() (uint64_t p) const;
     // function set: add / remove / change weight of an edge
-    void set(int x, int y, int wNew);
-    void set(unsigned long long p, int wNew);
-    // return the number of vertices (cannot be changed)
-    int num_vertices() const { return n; }
+    virtual void set(uint32_t x, uint32_t y, int32_t wNew) = 0;
+    virtual void set(uint64_t p, int32_t wNew);
+    // return incident edges for a vertex
+    virtual std::vector<std::pair<uint32_t, int32_t>> neighbors(uint32_t x) const;
+    virtual void neighbors(uint32_t x, std::vector<EdgeTarget>& list) const;
+    virtual void neighbors(uint32_t x, std::vector<std::pair<uint32_t, int32_t>>& list) const;
+    // return the number of vertices
+    uint32_t num_vertices() const { return n; }
     // return the number of edges (dynamically counted)
-    int num_edges() const { return m; }
+    uint32_t num_edges() const { return m; }
     // flag whether the graph is directed or undirected
     bool is_directed() const { return directed; }
+    // resize the graph - specify expected number of edges in second param
+    virtual void resize(uint32_t n0, uint32_t m0=0, bool d_flag=false);
     // constructor for a graph: number of vertices, flag for directed
-    Graph(int n0=0, bool d_flag=false) : n(n0), m(0), directed(d_flag), w(std::vector<int>(n0*n0, WEIGHT_INFTY)) {};
+    Graph(uint32_t n0=0, bool d_flag=false) : n(n0), m(0), directed(d_flag) {};
 };
 
 // write to file

@@ -1,25 +1,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 #include "cpu_prim.hpp"
+#include "matrix_graph.hpp"
+#include "sparse_graph.hpp"
 #include <vector>
 
-TEST_CASE("find next vertex") {
-    Graph g(4, false);
-    g.set(0, 1, 4);
-    g.set(0, 2, 8);
-    g.set(1, 2, 11);
-    g.set(1, 3, 8);
-    bool v[4] = { true, false, false, false };
-    int d[4] = {0, 4, 7, 8};
-    CHECK(cpuNearestVertex(g, d, v) == 1);
-    v[1] = true; 
-    CHECK(cpuNearestVertex(g, d, v) == 2);
-    d[2] = 9;
-    CHECK(cpuNearestVertex(g, d, v) == 3);
-}
-
-TEST_CASE("prim for tiny graph") {
-    Graph g(6, false);
+TEST_CASE_TEMPLATE("prim for tiny graph", T_GRAPH, MatrixGraph, SparseGraph) {
+    T_GRAPH g(6, false);
     g.set(0,1,1);
     g.set(0,2,3);
     g.set(0,5,2);
@@ -29,7 +16,8 @@ TEST_CASE("prim for tiny graph") {
     g.set(2,4,1);
     g.set(3,4,4);
     g.set(4,5,5);
-    Graph mst = cpuPrimAlgorithm(g);
+    T_GRAPH mst;
+    cpuPrimAlgorithm(g, mst);
     CHECK(mst.num_vertices() == 6);
     CHECK(mst.num_edges() == 5);
     CHECK(mst(0,1) == 1);
@@ -41,8 +29,8 @@ TEST_CASE("prim for tiny graph") {
     CHECK(mst(3,2) == 2);
 }
 
-TEST_CASE("prim for small graph") {
-    Graph g(10, false);
+TEST_CASE_TEMPLATE("prim for small graph", T_GRAPH, MatrixGraph, SparseGraph) {
+    T_GRAPH g(10, false);
     g.set(0, 1, 3);
     g.set(0, 3, 6);
     g.set(0, 5, 9);
@@ -64,7 +52,8 @@ TEST_CASE("prim for small graph") {
     g.set(7, 8, 1);
     g.set(7, 9, 4);
     g.set(8, 9, 3);
-    Graph mst = cpuPrimAlgorithm(g);
+    T_GRAPH mst;
+    cpuPrimAlgorithm(g, mst);
     CHECK(mst.num_vertices() == 10);
     CHECK(mst.num_edges() == 9);
     CHECK(mst(0, 1) == 3);
