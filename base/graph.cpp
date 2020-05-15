@@ -39,34 +39,12 @@ int32_t Graph::operator() (uint64_t p) const {
     return t(x, y);
 }
 
-std::vector<std::pair<uint32_t, int32_t>> Graph::neighbors(uint32_t x) const {
-    const Graph& t = *this;
-    std::vector<std::pair<uint32_t, int32_t>> list;
-    for (uint32_t i=0; i<n; i++) {
-        int32_t weight = t(x,i);
-        if (weight != WEIGHT_INFTY) {
-            list.push_back(std::pair<uint32_t, int32_t>(i, weight));
-        }
-    }
-    return list;
-}
-
 void Graph::neighbors(uint32_t x, std::vector<EdgeTarget>& list) const {
     const Graph& t = *this;
     for (uint32_t i=0; i<n; i++) {
         int32_t weight = t(x,i);
         if (weight != WEIGHT_INFTY) {
             list.push_back(EdgeTarget(i, weight));
-        }
-    }
-}
-
-void Graph::neighbors(uint32_t x, std::vector<std::pair<uint32_t, int32_t>>& list) const {
-    const Graph& t = *this;
-    for (uint32_t i=0; i<n; i++) {
-        int32_t weight = t(x,i);
-        if (weight != WEIGHT_INFTY) {
-            list.push_back(std::pair<uint32_t, int32_t>(i, weight));
         }
     }
 }

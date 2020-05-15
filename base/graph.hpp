@@ -14,6 +14,12 @@ struct EdgeTarget {
     int32_t weight;
     inline EdgeTarget() {};
     inline EdgeTarget(uint32_t v, int32_t w) : vertex_to(v), weight(w) {};
+    inline EdgeTarget(std::pair<uint32_t, int32_t> p) : vertex_to(p.first), weight(p.second) {};
+    inline const EdgeTarget& operator= (const std::pair<uint32_t, int32_t>& p) {
+        vertex_to = p.first;
+        weight = p.second;
+        return (*this);
+    }
 };
 
 /**
@@ -52,10 +58,8 @@ public:
     // function set: add / remove / change weight of an edge
     virtual void set(uint32_t x, uint32_t y, int32_t wNew) = 0;
     virtual void set(uint64_t p, int32_t wNew);
-    // return incident edges for a vertex
-    virtual std::vector<std::pair<uint32_t, int32_t>> neighbors(uint32_t x) const;
+    // return incident edges for a vertex(unsorted)
     virtual void neighbors(uint32_t x, std::vector<EdgeTarget>& list) const;
-    virtual void neighbors(uint32_t x, std::vector<std::pair<uint32_t, int32_t>>& list) const;
     // return the number of vertices
     uint32_t num_vertices() const { return n; }
     // return the number of edges (dynamically counted)

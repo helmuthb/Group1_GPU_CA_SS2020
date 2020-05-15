@@ -11,6 +11,8 @@ matrix_graph.o : matrix_graph.cpp matrix_graph.hpp graph.hpp
 
 sparse_graph.o : sparse_graph.cpp sparse_graph.hpp graph.hpp
 
+list_graph.o : list_graph.cpp list_graph.hpp graph.hpp
+
 generator.o : generator.cpp graph.hpp
 
 generator_main.o : generator.hpp graph.hpp matrix_graph.hpp

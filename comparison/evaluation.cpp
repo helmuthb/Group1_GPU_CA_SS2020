@@ -1,6 +1,7 @@
 #include "graph.hpp"
 #include "matrix_graph.hpp"
 #include "sparse_graph.hpp"
+#include "list_graph.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
 #include <chrono>
@@ -46,6 +47,13 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = cpuRuntime<SparseGraph>(g2, cntRuns);
         // output to file 
         os << "cpu_s," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+        // create an undirected graph
+        ListGraph g3;
+        generator(g3, num_vertices, 0, weight_range, density, false);
+        // run through all implementations and get runtime
+        runtime = cpuRuntime<ListGraph>(g3, cntRuns);
+        // output to file 
+        os << "cpu_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
     }
 }
 

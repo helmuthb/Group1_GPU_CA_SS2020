@@ -3,13 +3,14 @@
 #include "graph.hpp"
 #include "matrix_graph.hpp"
 #include "sparse_graph.hpp"
+#include "list_graph.hpp"
 #include "generator.hpp"
 #include <sstream>
 #include <string>
 #include <iostream>
 #include <cstdint>
 
-TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, SparseGraph) {
+TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
     T_GRAPH g;
     generator(g, 10, 2, 5, 0.5, false);
     CHECK(g.num_vertices() == 10);
@@ -35,7 +36,7 @@ TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, Sp
     WARN_MESSAGE(min_w == 2, "we expect the minimum to be taken");
 }
 
-TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, SparseGraph) {
+TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
     T_GRAPH g;
     generator(g, 10, 2, 5, 0.5, true);
     CHECK(g.num_vertices() == 10);
@@ -61,7 +62,7 @@ TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, Spar
     WARN_MESSAGE(min_w == 2, "we expect the minimum to be taken");
 }
 
-TEST_CASE_TEMPLATE("creating a large graph", T_GRAPH, MatrixGraph, SparseGraph) {
+TEST_CASE_TEMPLATE("creating a large graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
     T_GRAPH g;
     generator(g, 10000, 2, 5, 0.5, false);
     CHECK(g.num_vertices() == 10000);
