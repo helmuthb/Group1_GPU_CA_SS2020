@@ -40,11 +40,28 @@ int32_t Graph::operator() (uint64_t p) const {
 }
 
 void Graph::neighbors(uint32_t x, std::vector<EdgeTarget>& list) const {
+    list.resize(0);
     const Graph& t = *this;
-    for (uint32_t i=0; i<n; i++) {
+    for (uint32_t i=0; i<n; ++i) {
         int32_t weight = t(x,i);
         if (weight != WEIGHT_INFTY) {
             list.push_back(EdgeTarget(i, weight));
+        }
+    }
+}
+
+void Graph::edges(std::vector<Edge>& list) const {
+    std::vector<EdgeTarget> row;
+    list.resize(m);
+    auto pos = list.begin();
+    for (uint32_t x=0; x<n; x++) {
+        row.resize(0);
+        neighbors(x, row);
+        for (auto it = row.begin(); it < row.end(); ++it) {
+            if (directed || it->vertex_to>x) {
+                (*pos) = Edge (x, *it);
+                ++pos;
+            }
         }
     }
 }
@@ -54,6 +71,17 @@ void Graph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
     m = 0;
     directed = d_flag;
 }
+
+#ifdef WITH_BOOST
+void Graph::toBoost(BoostGraph& bg) const {
+    bg = BoostGraph(n);
+    std::vector<Edge> e;
+    this->edges(e);
+    for (auto it = e.begin(); it < e.end(); ++it) {
+        boost::add_edge(boost::vertex(it->vertex_from, bg), boost::vertex(it->vertex_to, bg), {it->weight}, bg);
+    }
+}
+#endif
 
 std::ostream& operator<< (std::ostream& os, const Graph& g) {
     // header line

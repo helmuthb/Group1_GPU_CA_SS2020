@@ -29,6 +29,7 @@ public:
     virtual void set(uint32_t x, uint32_t y, int32_t wNew) override;
     virtual void resize(uint32_t n0, uint32_t m0=0, bool d_flag=false) override;
     SparseGraph(uint32_t n0=0, bool d_flag=false) : Graph(n0, d_flag), w({}) {};
+    SparseGraph(const Graph&);
 };
 
 #endif

@@ -26,3 +26,12 @@ void MatrixGraph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
     Graph::resize(n0, m0, d_flag);
     w = std::vector<int32_t>(n0*n0, WEIGHT_INFTY);
 }
+
+MatrixGraph::MatrixGraph(const Graph& orig) : Graph(orig.num_vertices(), orig.is_directed()) {
+    w = std::vector<int32_t>(n*n, WEIGHT_INFTY);
+    std::vector<Edge> e(m);
+    this->edges(e);
+    for (auto it = e.begin(); it < e.end(); ++it) {
+        w[idx(it->vertex_from, it->vertex_to)] = it->weight;
+    }
+}

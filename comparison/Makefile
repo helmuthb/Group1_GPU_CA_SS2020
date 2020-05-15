@@ -1,6 +1,6 @@
 BASE = ../base
 CPU_DIR = ../cpu-version
-CXXFLAGS = -Wall -I.. -I$(BASE) -I$(CPU_DIR) -g
+CXXFLAGS = -Wall -I.. -I$(BASE) -I$(CPU_DIR) -g -DWITH_BOOST
 
 all : evaluation
 

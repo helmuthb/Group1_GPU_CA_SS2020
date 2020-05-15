@@ -6,6 +6,17 @@
 #include <utility>
 #include <vector>
 
+#ifdef WITH_BOOST
+#include <boost/config.hpp>
+#include <boost/graph/adjacency_list.hpp>
+
+/**
+ * This is the way we use boost's graphs for comparison.
+ */
+typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS,
+    boost::property<boost::vertex_distance_t, int>, boost::property<boost::edge_weight_t, int> > BoostGraph;
+#endif
+
 /**
  * This is a struct for describing the target of an edge.
  */
@@ -20,6 +31,18 @@ struct EdgeTarget {
         weight = p.second;
         return (*this);
     }
+};
+
+/**
+ * This is a struct for describing an edge.
+ */
+struct Edge {
+    uint32_t vertex_from;
+    uint32_t vertex_to;
+    int32_t weight;
+    inline Edge() {};
+    inline Edge(uint32_t x, uint32_t y, int32_t w) : vertex_from(x), vertex_to(y), weight(w) {};
+    inline Edge(uint32_t x, EdgeTarget t) : vertex_from(x), vertex_to(t.vertex_to), weight(t.weight) {};
 };
 
 /**
@@ -60,6 +83,8 @@ public:
     virtual void set(uint64_t p, int32_t wNew);
     // return incident edges for a vertex(unsorted)
     virtual void neighbors(uint32_t x, std::vector<EdgeTarget>& list) const;
+    // return all edges (unsorted)
+    virtual void edges(std::vector<Edge>& list) const;
     // return the number of vertices
     uint32_t num_vertices() const { return n; }
     // return the number of edges (dynamically counted)
@@ -70,6 +95,9 @@ public:
     virtual void resize(uint32_t n0, uint32_t m0=0, bool d_flag=false);
     // constructor for a graph: number of vertices, flag for directed
     Graph(uint32_t n0=0, bool d_flag=false) : n(n0), m(0), directed(d_flag) {};
+#ifdef WITH_BOOST
+    void toBoost(BoostGraph&) const;
+#endif
 };
 
 // write to file

@@ -1,4 +1,4 @@
-CXXFLAGS = -Wall -I.. -g
+CXXFLAGS = -Wall -I.. -g -DWITH_BOOST
 
 test : test_graph test_generator
 

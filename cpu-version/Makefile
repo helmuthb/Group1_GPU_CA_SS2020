@@ -1,5 +1,5 @@
 BASE = ../base
-CXXFLAGS = -Wall -I$(BASE) -g
+CXXFLAGS = -Wall -I$(BASE) -g -DWITH_BOOST
 
 all : cpu_prim check
 

@@ -1,4 +1,4 @@
-CXXFLAGS = -Wall -g
+CXXFLAGS = -Wall -g -DWITH_BOOST
 
 all : generator check
 
@@ -17,5 +17,5 @@ generator.o : generator.cpp graph.hpp
 
 generator_main.o : generator.hpp graph.hpp matrix_graph.hpp
 
-check : *.cpp *.hpp graph.o matrix_graph.o sparse_graph.o generator.o
+check : *.cpp *.hpp graph.o matrix_graph.o sparse_graph.o list_graph.o generator.o
 	@cd test && make test

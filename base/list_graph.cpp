@@ -36,3 +36,13 @@ void ListGraph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
     Graph::resize(n0, m0, d_flag);
     w.resize(n0);
 }
+
+ListGraph::ListGraph(const Graph& orig) : Graph(orig.num_vertices(), orig.is_directed()), w(orig.num_vertices()) {
+    for (uint32_t i = 0; i < n; ++i) {
+        std::vector<EdgeTarget> row;
+        orig.neighbors(i, row);
+        for (auto it = row.begin(); it < row.end(); ++it) {
+            w[i][it->vertex_to] = it->weight;
+        }
+    }
+}

@@ -32,6 +32,7 @@ public:
     virtual void neighbors(uint32_t x, std::vector<EdgeTarget>& list) const override;
     virtual void resize(uint32_t n0, uint32_t m0=0, bool d_flag=false) override;
     ListGraph(uint32_t n0=0, bool d_flag=false) : Graph(n0, d_flag), w(n0) {};
+    ListGraph(const Graph&);
 };
 
 #endif

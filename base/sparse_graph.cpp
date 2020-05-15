@@ -38,3 +38,16 @@ void SparseGraph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
         w.reserve(m0);
     }
 }
+
+SparseGraph::SparseGraph(const Graph& orig) : Graph(orig.num_vertices(), orig.is_directed()) {
+    w.reserve(orig.num_edges());
+    std::vector<Edge> e(m);
+    this->edges(e);
+    for (auto it = e.begin(); it < e.end(); ++it) {
+        w[xy2z(it->vertex_from, it->vertex_to)] = it->weight;
+        if (!is_directed()) {
+            w[xy2z(it->vertex_to, it->vertex_from)] = it->weight;
+        }
+    }
+    m = orig.num_edges();
+}

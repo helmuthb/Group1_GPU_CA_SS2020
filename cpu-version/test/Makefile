@@ -1,5 +1,5 @@
 BASE = ../../base
-CXXFLAGS = -Wall -I.. -I$(BASE) -I$(BASE)/test
+CXXFLAGS = -Wall -I.. -I$(BASE) -I$(BASE)/test -DWITH_BOOST
 
 test : test_cpu_prim
 
