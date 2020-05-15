@@ -2,6 +2,7 @@
 #include "matrix_graph.hpp"
 #include "sparse_graph.hpp"
 #include "list_graph.hpp"
+#include "thrust_prim.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
 #include <chrono>
@@ -11,6 +12,31 @@
 #endif
 
 using namespace std::chrono;
+
+double thrustRuntime(const Graph& g, int cntRuns) {
+    steady_clock::time_point begin, end;
+    double runtime;
+
+    // prepare data for thrust
+    thrust::host_vector<uint32_t> num_edges;
+    thrust::host_vector<uint32_t> idx_edges;
+    thrust::host_vector<uint32_t> target;
+    thrust::host_vector<int32_t> weight;
+    thrustPrepare(g, &num_edges, &idx_edges, &target, &weight);
+    thrust::host_vector<uint32_t> predecessor;
+    // allow for warm-up
+    thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+    // now the real test run
+    begin = steady_clock::now();
+    for (int i=0; i<cntRuns; ++i) {
+        // find MST solution
+        thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+    }
+    end = steady_clock::now();
+    runtime = (duration_cast<duration<double>>(end-begin)).count();
+    // return as miliseconds per round
+    return 1000.*runtime/cntRuns;    
+}
 
 template <class T_GRAPH>
 double cpuRuntime(const Graph& g, int cntRuns) {
@@ -22,7 +48,7 @@ double cpuRuntime(const Graph& g, int cntRuns) {
     cpuPrimAlgorithm(g, mst);
     // now the real test run
     begin = steady_clock::now();
-    for (int i=0; i<cntRuns; i++) {
+    for (int i=0; i<cntRuns; ++i) {
         MatrixGraph mst2;
         // find MST solution
         cpuPrimAlgorithm(g, mst2);
@@ -46,7 +72,7 @@ double boostRuntime(const Graph& g, int cntRuns) {
     auto p = std::vector<boost::graph_traits<BoostGraph>::vertex_descriptor >(g.num_vertices());
     boost::prim_minimum_spanning_tree(boost_g, &p[0]);
     begin = steady_clock::now();
-    for (int i=0; i<cntRuns; i++) {
+    for (int i=0; i<cntRuns; ++i) {
         boost::prim_minimum_spanning_tree(boost_g, &p[0]);
     }
     end = steady_clock::now();
@@ -57,7 +83,7 @@ double boostRuntime(const Graph& g, int cntRuns) {
 #endif
 
 void runParamSet(std::ostream& os, int num_vertices, int weight_range, float density, int numReplica, int cntRuns) {
-    for (int i=0; i<numReplica; i++) {
+    for (int i=0; i<numReplica; ++i) {
         // create an undirected graph
         MatrixGraph g;
         generator(g, num_vertices, 0, weight_range, density, false);
@@ -84,6 +110,10 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         // output to file 
         os << "cpu_b," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
 #endif
+        // run through thrust implementation
+        runtime = thrustRuntime(g, cntRuns);
+        // output to file 
+        os << "thrust," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
     }
 }
 
