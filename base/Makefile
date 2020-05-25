@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -g -DWITH_BOOST
 all : generator check
 
 generator : generator_main.o generator.o graph.o matrix_graph.o
-	g++ generator_main.o generator.o graph.o matrix_graph.o -o generator
+	g++ $^ -o $@
 
 graph.o : graph.cpp graph.hpp
 
