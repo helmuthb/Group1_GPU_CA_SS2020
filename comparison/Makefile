@@ -14,3 +14,6 @@ evaluation.o : evaluation.cu $(BASE)/graph.hpp $(BASE)/matrix_graph.hpp $(BASE)/
 
 %.o : %.cu
 	$(NVCC) $(CUDAFLAGS) -c $< -o $@
+
+clean :
+	rm -f *.o evaluation

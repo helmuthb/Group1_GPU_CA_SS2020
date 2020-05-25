@@ -13,3 +13,6 @@ test_generator : test_generator.o ../generator.o ../graph.o ../matrix_graph.o ..
 	./test_generator || (rm test_generator; exit 1)
 
 test_generator.o : test_generator.cpp ../graph.hpp ../matrix_graph.hpp ../sparse_graph.hpp ../list_graph.hpp ../generator.hpp
+
+clean :
+	rm -f *.o test_graph test_generator

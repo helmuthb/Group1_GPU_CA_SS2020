@@ -8,4 +8,7 @@ cpu_prim : cpu_prim_main.o cpu_prim.o $(BASE)/graph.o $(BASE)/matrix_graph.o
 
 check : *.cpp *.hpp
 	@cd test && make test
-	
+
+clean :
+	rm -f *.o cpu_prim check
+	@make -C test clean
