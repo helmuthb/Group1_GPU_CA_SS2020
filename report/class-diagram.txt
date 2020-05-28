@@ -1,0 +1,58 @@
+'
+' Generates a class diagram using open-source PlantUML
+'
+' see https://plantuml.com/
+'
+
+@startuml
+
+Edge : vertex_from
+Edge : vertex_to
+Edge : weight
+
+EdgeTarget : vertex_to
+EdgeTarget : weight
+
+class Graph {
+    # n
+    # m
+    # directed
+    # getEdge(p, x, y)
+    + neighbors(x, [])
+    + edges([])
+    + resize()
+    .. Setters ..
+    + {abstract} set(x, y, w)
+    + {abstract} set(p, w)
+    .. Getters ..
+    + num_vertices()
+    + num_edges()
+    + is_directed()
+}
+
+Graph <|-- ListGraph
+class ListGraph {
+    + set(x, y, w)
+    + set(p, w)
+    .. Internal Representation ..
+    # w
+}
+
+Graph <|-- SparseGraph
+class SparseGraph {
+    + set(x, y, w)
+    + set(p, w)
+    .. Internal Representation ..
+    # w
+}
+
+Graph <|-- MatrixGraph
+class MatrixGraph {
+    + set(x, y, w)
+    + set(p, w)
+    .. Internal Representation ..
+    # w
+    # idx(x, y)
+}
+
+@enduml
