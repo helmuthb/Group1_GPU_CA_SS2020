@@ -29,7 +29,7 @@ void generator(Graph& g, uint32_t num_vertices, int32_t min_weight, int32_t max_
     // edges is |V-1|, which corresponds to a minimum density of 2/v.
     if (density < 2.0/num_vertices) {
         throw new std::out_of_range("Density insufficient to connect graph");
-    } else if (density >= 1) {
+    } else if (density > 1) {
         throw new std::out_of_range("Density range exceeded");
     }
     // calculate desired number of edges
