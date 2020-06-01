@@ -3,6 +3,7 @@
 #include "sparse_graph.hpp"
 #include "list_graph.hpp"
 #include "thrust_prim.hpp"
+#include "cuda_prim.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
 #include <chrono>
@@ -12,6 +13,45 @@
 #endif
 
 using namespace std::chrono;
+
+double cudaRuntime(const Graph& g, int cntRuns) {
+    steady_clock::time_point begin, end;
+    double runtime;
+
+    // prepare data for thrust
+    uint2 * inbound_vertices, *outbound_vertices, *shape = NULL;
+    cudaSetup(g, inbound_vertices, outbound_vertices, shape);
+    const uint32_t V = shape->x;
+
+    uint32_t *outbound = new uint32_t[V];
+    uint32_t *inbound = new uint32_t[V];
+    uint32_t *weights = new uint32_t[V];
+
+    // allow for warm-up
+    cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
+        inbound, outbound, weights);
+
+    // now the real test run
+    begin = steady_clock::now();
+    for (int i=0; i<cntRuns; ++i) {
+        // find MST solution
+        cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
+            inbound, outbound, weights);
+        }
+    end = steady_clock::now();
+    runtime = (duration_cast<duration<double>>(end-begin)).count();
+
+    delete[] inbound_vertices;
+    delete[] outbound_vertices;
+    delete[] shape;
+
+    delete[] inbound;
+    delete[] outbound;
+    delete[] weights;
+
+    // return as miliseconds per round
+    return 1000.*runtime/cntRuns;    
+}
 
 double thrustRuntime(const Graph& g, int cntRuns) {
     steady_clock::time_point begin, end;
@@ -85,10 +125,11 @@ double boostRuntime(const Graph& g, int cntRuns) {
 void runParamSet(std::ostream& os, int num_vertices, int weight_range, float density, int numReplica, int cntRuns) {
     for (int i=0; i<numReplica; ++i) {
         // create an undirected graph
-        MatrixGraph g;
+        ListGraph g;
         generator(g, num_vertices, 0, weight_range, density, false);
         // run through all implementations and get runtime
         double runtime;
+/*
         runtime = cpuRuntime<MatrixGraph>(g, cntRuns);
         // output to file 
         os << "cpu_m," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
@@ -99,11 +140,13 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         // output to file 
         os << "cpu_s," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
         // create an undirected graph
-        ListGraph g3 = g;
+        // ListGraph g3 = g;
         // run through all implementations and get runtime
-        runtime = cpuRuntime<ListGraph>(g3, cntRuns);
+*/
+        runtime = cpuRuntime<ListGraph>(g, cntRuns);
         // output to file 
         os << "cpu_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+/*
 #ifdef WITH_BOOST
         // run through boost implementation
         runtime = boostRuntime(g, cntRuns);
@@ -114,15 +157,23 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = thrustRuntime(g, cntRuns);
         // output to file 
         os << "thrust," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+*/
+        // run through cuda implementation
+        runtime = cudaRuntime(g, cntRuns);
+        // output to file 
+        os << "cuda," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
     }
 }
 
 int main(int argc, char* argv[]) {
-    // runParamSet(std::cout, 10000, 50, 0.01, 3, 1);
+    runParamSet(std::cout, 10000, 50, 0.01, 3, 1);
+    runParamSet(std::cout, 50000, 50, 0.001, 3, 1);
+    /*
     runParamSet(std::cout, 1000, 50, 0.1, 10, 10);
     runParamSet(std::cout, 1000, 50, 0.2, 10, 10);
     runParamSet(std::cout, 1000, 50, 0.5, 10, 10);
     runParamSet(std::cout, 1000, 50, 0.75, 10, 10);
     runParamSet(std::cout, 500, 50, 0.2, 10, 20);
     runParamSet(std::cout, 100, 50, 0.2, 10, 100);
+    */
 }
