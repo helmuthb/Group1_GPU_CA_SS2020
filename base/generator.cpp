@@ -28,12 +28,7 @@ void generator(Graph& g, uint32_t num_vertices, int32_t min_weight, int32_t max_
         throw new std::out_of_range("Weight range exceeded");
     }
     // check density
-    // Note that an MST requires a connected graph, that is: every node of the
-    // graph must be reachable. For an undirected graph, the minimum number of
-    // edges is |V-1|, which corresponds to a minimum density of 2/v.
-    if (density < 2.0/num_vertices) {
-        throw new std::out_of_range("Density insufficient to connect graph");
-    } else if (density > 1) {
+    if (density <= 0 || density > 1) {
         throw new std::out_of_range("Density range exceeded");
     }
     // calculate desired number of edges
