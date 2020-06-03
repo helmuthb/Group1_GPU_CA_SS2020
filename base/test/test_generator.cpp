@@ -10,7 +10,7 @@
 #include <iostream>
 #include <cstdint>
 
-TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
+TEST_CASE_TEMPLATE("creating a random small undirected graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
     T_GRAPH g;
     generator(g, 10, 2, 5, 0.5, false);
     CHECK(g.num_vertices() == 10);
@@ -36,7 +36,30 @@ TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, Sp
     WARN_MESSAGE(min_w == 2, "we expect the minimum to be taken");
 }
 
-TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
+TEST_CASE_TEMPLATE("creating a non-random small undirected graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
+    T_GRAPH g;
+    generator(g, 10, 0, INT32_MAX-1, 0.5, false, 42);
+    CHECK(g.num_vertices() == 10);
+    CHECK(g.is_directed() == false);
+    CHECK(g.num_edges() == 28);
+    int32_t max_w = INT32_MIN, min_w = INT32_MAX;
+    for (uint32_t i=0; i<9; i++) {
+        for (uint32_t j=i+1; j<10; j++) {
+            if (g(i,j) != Graph::WEIGHT_INFTY) {
+                if (g(i,j) > max_w) {
+                    max_w = g(i,j);
+                }
+                if (g(i,j) < min_w) {
+                    min_w = g(i,j);
+                }
+            }
+        }
+    }
+    CHECK(max_w == 2030872034);
+    CHECK(min_w == 41446996);
+}
+
+TEST_CASE_TEMPLATE("creating a random small directed graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
     T_GRAPH g;
     generator(g, 10, 2, 5, 0.5, true);
     CHECK(g.num_vertices() == 10);
@@ -60,6 +83,29 @@ TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, Spar
     CHECK(min_w >= 2);
     WARN_MESSAGE(max_w == 5, "we expect the maximum to be taken");
     WARN_MESSAGE(min_w == 2, "we expect the minimum to be taken");
+}
+
+TEST_CASE_TEMPLATE("creating a non-random small directed graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
+    T_GRAPH g;
+    generator(g, 10, 0, INT32_MAX-1, 0.5, true, 42*42);
+    CHECK(g.num_vertices() == 10);
+    CHECK(g.is_directed() == true);
+    CHECK(g.num_edges() == 49);
+    int32_t max_w = INT32_MIN, min_w = INT32_MAX;
+    for (uint32_t i=0; i<10; i++) {
+        for (uint32_t j=0; j<10; j++) {
+            if (g(i,j) != Graph::WEIGHT_INFTY) {
+                if (g(i,j) > max_w) {
+                    max_w = g(i,j);
+                }
+                if (g(i,j) < min_w) {
+                    min_w = g(i,j);
+                }
+            }
+        }
+    }
+    CHECK(max_w == 2098594994);
+    CHECK(min_w == 20125130);
 }
 
 TEST_CASE_TEMPLATE("creating a large graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {

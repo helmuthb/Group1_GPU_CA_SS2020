@@ -14,10 +14,10 @@ const static int MAX_NODES = 100000;
 /**
  * Generate a graph with defined number of vertices, range of edge weight, density.
  */
-void generator(Graph& g, uint32_t num_vertices, int32_t min_weight, int32_t max_weight, float density, bool directed) {
-    // random number generator
+void generator(Graph& g, uint32_t num_vertices, int32_t min_weight, int32_t max_weight, float density, bool directed, uint64_t seed) {
+    // random number generator, in case a special seed is requested
     std::random_device rd;
-    std::mt19937_64 gen(rd());
+    std::mt19937_64 gen(seed == UINT64_MAX ? rd() : seed);
 
     // check num_nodes
     if (num_vertices <= 0 || num_vertices > MAX_NODES) {
