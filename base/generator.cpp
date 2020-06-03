@@ -2,6 +2,10 @@
 #include <iostream>
 #include <random>
 #include <cstdint>
+#include <algorithm>
+#include <numeric>
+#include <utility>
+
 #include "graph.hpp"
 #include "generator.hpp"
 
@@ -51,6 +55,26 @@ void generator(Graph& g, uint32_t num_vertices, int32_t min_weight, int32_t max_
         // otherwise add edge j - it cannot have been added yet
         else {
             g.set(j, w);
+        }
+    }
+    // We need to ensure that all nodes are connected. We do this by following
+    // what is effectively a random walk through a random ordering of the
+    // nodes.
+    // This will increase the graph density beyond the requested density, but
+    // the error is minuscule (at most 2/v).
+    std::vector<uint32_t> walk(num_vertices);
+    std::iota(begin(walk), end(walk), 0);
+    std::shuffle(begin(walk), end(walk), gen);
+    // Iterate over the nodes, and add an edge from previous to current
+    for (uint32_t i=1; i< num_vertices; i++) {
+        // Previous and current node
+        uint32_t x = walk[i-1];
+        uint32_t y = walk[i];
+        // weight we will use
+        int32_t w = std::uniform_int_distribution<>(min_weight, max_weight)(gen);
+        // add edge if it has not been set yet
+        if (g(x, y) == Graph::WEIGHT_INFTY) {
+            g.set(x, y, w);
         }
     }
 }
