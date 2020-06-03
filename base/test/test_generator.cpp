@@ -15,8 +15,8 @@ TEST_CASE_TEMPLATE("creating a small undirected graph", T_GRAPH, MatrixGraph, Sp
     generator(g, 10, 2, 5, 0.5, false);
     CHECK(g.num_vertices() == 10);
     CHECK(g.is_directed() == false);
-    WARN_MESSAGE(g.num_edges() > 10, "we expect about 22 edges");
-    WARN_MESSAGE(g.num_edges() < 30, "we expect about 22 edges");
+    WARN_MESSAGE(g.num_edges() > 15, "we expect about 22+5 edges");
+    WARN_MESSAGE(g.num_edges() < 35, "we expect about 22+5 edges");
     int32_t max_w = 0, min_w = 100;
     for (uint32_t i=0; i<9; i++) {
         for (uint32_t j=i+1; j<10; j++) {
@@ -41,8 +41,8 @@ TEST_CASE_TEMPLATE("creating a small directed graph", T_GRAPH, MatrixGraph, Spar
     generator(g, 10, 2, 5, 0.5, true);
     CHECK(g.num_vertices() == 10);
     CHECK(g.is_directed() == true);
-    WARN_MESSAGE(g.num_edges() > 40, "we expect about 45 edges");
-    WARN_MESSAGE(g.num_edges() < 50, "we expect about 45 edges");
+    WARN_MESSAGE(g.num_edges() > 45, "we expect about 45+5 edges");
+    WARN_MESSAGE(g.num_edges() < 55, "we expect about 45+5 edges");
     int32_t max_w = 0, min_w = 100;
     for (uint32_t i=0; i<10; i++) {
         for (uint32_t j=0; j<10; j++) {
