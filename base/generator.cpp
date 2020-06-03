@@ -9,7 +9,7 @@
 #include "graph.hpp"
 #include "generator.hpp"
 
-const static int MAX_NODES = 100000;
+const static int MAX_NODES = 100000000;
 
 /**
  * Generate a graph with defined number of vertices, range of edge weight, density.
