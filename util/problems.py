@@ -21,10 +21,10 @@ class ProblemDocumenter:
 
         Allocations as found in cuda/single-kernel
         '''
-        # inbound_vertices: uint2 * 2 * V
-        vcost = 4 * 2 * V
-        # outbound_vertices: uint2 * 2 * E
+        # inbound_vertices: uint2[E * 2]
         ecost = 4 * 2 * E
+        # outbound_vertices: uint2[V]
+        vcost = 4 * V
         return vcost + ecost
 
     def thrust_memcost(self, V, E):
@@ -32,10 +32,10 @@ class ProblemDocumenter:
 
         Allocations as found in thrust/
         '''
-        # target: uint32_t * 2V, weight: int32_t * 2V (assuming undirected!)
-        vcost = (4 * 2 * V) + (4 * 2 * V)
-        # num_edges: uint32_t * E, idx_edges: uint32_t * E
-        ecost = (4 * E) + (4 * E)
+        # target: vector<uint32_t>(2*E), weight: vector<int32_t>(2*E)
+        ecost = (4 * 2 * E) + (4 * 2 * E)
+        # num_edges: vector<uint32_t>(V), idx_edges: uint32_t>(V)
+        vcost = (4 * V) + (4 * V)
         return vcost + ecost
 
     def to_stdout(self):
@@ -44,7 +44,7 @@ class ProblemDocumenter:
             V = float(p.vertices)
             max_E = V*(V-1)/2
             print(f'|V| = {V:.0}, max_edges = {max_E:.0}')
-            print('   density      |E|      CUDA GiB      Thrust GiB')
+            print('   density       |E|      CUDA GiB   Thrust GiB')
             for d in p.densities:
                 E = round(d*max_E, 0)
                 # 2**32 is GiB
@@ -69,8 +69,8 @@ if __name__ == '__main__':
     problem_list = [
         Problem(vertices=10**3, densities=[0.1, 0.25, 0.5, 0.75, 0.9, 1.0]),
         Problem(vertices=10**4, densities=[0.1, 0.25, 0.5, 0.75, 0.9, 1.0]),
-        Problem(vertices=10**5, densities=[0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]),
-        Problem(vertices=10**6, densities=[0.0001, 0.0005, 0.001, 0.002, 0.003, 0.004]),
+        Problem(vertices=10**5, densities=[0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2]),
+        Problem(vertices=10**6, densities=[0.0001, 0.0005, 0.001, 0.0015, 0.002]),
     ]
 
     pd = ProblemDocumenter(problem_list)
