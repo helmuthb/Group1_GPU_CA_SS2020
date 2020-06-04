@@ -110,3 +110,13 @@ TEST_CASE_TEMPLATE("read-write a directed graph", T_GRAPH, MatrixGraph, SparseGr
     CHECK(g(0,1) == g2(0,1));
     CHECK(g(1,0) == g2(1,0));
 }
+
+TEST_CASE_TEMPLATE("Compute the weight of an undirected graph", T_GRAPH, MatrixGraph, SparseGraph, ListGraph) {
+    T_GRAPH g1, g2;
+    std::string str1 = "H 4 6 1\nE 0 1 1\nE 1 2 2\nE 2 3 3\nE 3 0 4\nE 0 2 5\nE 1 3 6\n";
+    std::string str2 = "H 4 3 1\nE 0 1 1\nE 1 2 2\nE 2 3 3\n";
+    std::stringstream(str1) >> g1;
+    std::stringstream(str2) >> g2;
+    CHECK(g1.sum_weights() == 21);
+    CHECK(g2.sum_weights() == 6);
+}

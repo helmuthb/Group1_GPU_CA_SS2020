@@ -72,6 +72,18 @@ void Graph::resize(uint32_t n0, uint32_t m0, bool d_flag) {
     directed = d_flag;
 }
 
+int64_t Graph::sum_weights() {
+    int64_t sum = 0;
+    std::vector<Edge> e;
+    this->edges(e);
+    for (auto it = e.begin(); it < e.end(); ++it) {
+        if (it->weight < Graph::WEIGHT_INFTY) {
+            sum += it->weight;
+        }
+    }
+    return sum;
+}
+
 #ifdef WITH_BOOST
 void Graph::toBoost(BoostGraph& bg) const {
     bg = BoostGraph(n);

@@ -91,6 +91,8 @@ public:
     uint32_t num_edges() const { return m; }
     // flag whether the graph is directed or undirected
     bool is_directed() const { return directed; }
+    // get weight of all edges in graph
+    int64_t sum_weights();
     // resize the graph - specify expected number of edges in second param
     virtual void resize(uint32_t n0, uint32_t m0=0, bool d_flag=false);
     // constructor for a graph: number of vertices, flag for directed
