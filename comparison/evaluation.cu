@@ -122,11 +122,12 @@ double boostRuntime(const Graph& g, int cntRuns) {
 }
 #endif
 
-void runParamSet(std::ostream& os, int num_vertices, int weight_range, float density, int numReplica, int cntRuns) {
+void runParamSet(std::ostream& os, int num_vertices, int weight_range, float density,
+                 int numReplica, int cntRuns, uint64_t seed) {
     for (int i=0; i<numReplica; ++i) {
-        // create an undirected graph
+        // create an undirected graph, using a different seed in each replica
         ListGraph g;
-        generator(g, num_vertices, 0, weight_range, density, false);
+        generator(g, num_vertices, 0, weight_range, density, false, seed+numReplica);
         // run through all implementations and get runtime
         double runtime;
 /*
@@ -166,14 +167,14 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 }
 
 int main(int argc, char* argv[]) {
-    runParamSet(std::cout, 10000, 50, 0.01, 3, 1);
-    runParamSet(std::cout, 50000, 50, 0.001, 3, 1);
+    runParamSet(std::cout, 10000, 50, 0.01, 3, 1, 42);
+    runParamSet(std::cout, 50000, 50, 0.001, 3, 1, 42);
     /*
-    runParamSet(std::cout, 1000, 50, 0.1, 10, 10);
-    runParamSet(std::cout, 1000, 50, 0.2, 10, 10);
-    runParamSet(std::cout, 1000, 50, 0.5, 10, 10);
-    runParamSet(std::cout, 1000, 50, 0.75, 10, 10);
-    runParamSet(std::cout, 500, 50, 0.2, 10, 20);
-    runParamSet(std::cout, 100, 50, 0.2, 10, 100);
+    runParamSet(std::cout, 1000, 50, 0.1, 10, 10, 42);
+    runParamSet(std::cout, 1000, 50, 0.2, 10, 10, 42);
+    runParamSet(std::cout, 1000, 50, 0.5, 10, 10, 42);
+    runParamSet(std::cout, 1000, 50, 0.75, 10, 10, 42);
+    runParamSet(std::cout, 500, 50, 0.2, 10, 20, 42);
+    runParamSet(std::cout, 100, 50, 0.2, 10, 100, 42);
     */
 }
