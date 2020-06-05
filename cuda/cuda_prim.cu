@@ -1,7 +1,31 @@
 #include "cuda_prim.hpp"
 
+// Use this many threads per block
 #define BLOCKSIZE 1024
 
+
+//
+// Initialize the compact adjacency list graph representation (Wang et al.)
+//
+//  shape.x = |V|
+//  shape.y = |E|
+//
+// outbound vertices: for each vertex with number k
+//      outbound_vertices[k].x = count of immediate neighbors
+//      outbound_vertices[k].y = offset of edge list in inbound_vertices
+//
+// inbound_vertices: incoming edges ordered by vertex
+//      inbound_vertices[*].x = id of other vertex
+//      inbound_vertices[*].y = weight of edge
+//
+// So for each vertex k:
+//     offset         = outbound_vertices[k].y
+//     num_edges      = outbound_vertices[k].x
+//     list_of_edges: = inbound_vertices[offset+0]
+//                      inbound_vertices[offset+1]
+//                      inbound_vertices[offset+..]
+//                      inbound_vertices[offset+num_edges]
+//
 void cudaSetup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices, uint2 *&shape) {
     shape = new uint2;
     shape->x = g.num_vertices();
@@ -9,18 +33,28 @@ void cudaSetup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertic
     inbound_vertices = new uint2[shape->y * 2];
     outbound_vertices = new uint2[shape->x];
     uint32_t pos = 0;
+    // for each vertex
     for (uint32_t v = 0; v < shape->x; ++v) {
+        // get its neighbors
         std::vector<EdgeTarget> neighbors;
         g.neighbors(v, neighbors);
+        // store neighbor count and offset
         outbound_vertices[v].x = neighbors.size();
         outbound_vertices[v].y = v == 0 ? 0 : outbound_vertices[v - 1].y + outbound_vertices[v-1].x;
+        // for each incoming edge
         for (auto nb = neighbors.begin(); nb < neighbors.end(); ++nb) {
+            // store the neighbor vertex ID, and the weight of the edge
+            // (The graph is undirected, to vertex_to is always the other side)
             inbound_vertices[pos].x = nb->vertex_to;
             inbound_vertices[pos++].y = nb->weight;
         }
     }
 }
 
+//
+// Single-kernel Prim implementation
+//
+// 
 __global__ void mst(uint2 *inbound_vertices, uint2 *outbound_vertices, uint2 *shape,
                     uint32_t *inbound, uint32_t *outbound, uint32_t *weights, uint32_t *current_node)
 {
