@@ -160,7 +160,8 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
     for (int i=0; i<numReplica; ++i) {
         // create an undirected graph, using a different seed in each replica
         ListGraph g;
-        generator(g, num_vertices, 0, weight_range, density, false, seed+numReplica);
+        uint64_t itseed = seed+i;
+        generator(g, num_vertices, 0, weight_range, density, false, itseed);
         // run through all implementations and get runtime
         double runtime;
 
@@ -168,6 +169,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = cpuRuntime<ListGraph>(g, cntRuns, cpu_l_mst);
         // output to file 
         os << "cpu_l," << i
+                << "," << itseed
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
@@ -180,6 +182,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = boostRuntime(g, cntRuns, boost_mst);
         // output to file 
         os << "boost," << i
+                << "," << itseed
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
@@ -193,6 +196,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = thrustRuntime(g, cntRuns, thrust_mst);
         // output to file 
         os << "thrust," << i
+                << "," << itseed
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
@@ -205,6 +209,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = cudaRuntime(g, cntRuns, cuda_mst);
         // output to file 
         os << "cuda," << i
+                << "," << itseed
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
@@ -215,7 +220,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "implementation,vertices,density,weight_range,runtime,min" << std::endl;
+    std::cout << "implementation,seed,vertices,density,weight_range,runtime,min" << std::endl;
     runParamSet(std::cout, 10000, 50,  0.01, 3, 1, 42);
     runParamSet(std::cout, 50000, 50, 0.001, 3, 1, 42);
 }
