@@ -14,11 +14,11 @@
 
 using namespace std::chrono;
 
-double cudaRuntime(const Graph& g, int cntRuns) {
+double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
-    // prepare data for thrust
+    // prepare data for CUDA
     uint2 * inbound_vertices, *outbound_vertices, *shape = NULL;
     cudaSetup(g, inbound_vertices, outbound_vertices, shape);
     const uint32_t V = shape->x;
@@ -41,6 +41,29 @@ double cudaRuntime(const Graph& g, int cntRuns) {
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
 
+    // store the result
+    // FIXME: This is currently deactivated as there seems to be a bug in the
+    // CUDA implementation. For example, given 10 nodes, 0.5 density, weight
+    // 5000, I get the following values in outbound/inbound/weights:
+    //
+    //    2261431280 -> 0     w=4294967295
+    //    21874 -> 21874     w=4294967295
+    //    0 -> 0     w=1510
+    //    0 -> 0     w=4294967295
+    //    0 -> 7     w=1553
+    //    0 -> 0     w=4115
+    //    0 -> 4     w=2081
+    //    1491 -> 6     w=4294967295
+    //    6 -> 1     w=4294967295
+    //    4187 -> 2     w=4294967295
+    //
+    mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
+    for (uint32_t i = 0; i < V; ++i) {
+        ;
+        // FIXME: CUDA implementation uses unsigned weights
+        //mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
+    }
+
     delete[] inbound_vertices;
     delete[] outbound_vertices;
     delete[] shape;
@@ -53,7 +76,7 @@ double cudaRuntime(const Graph& g, int cntRuns) {
     return 1000.*runtime/cntRuns;    
 }
 
-double thrustRuntime(const Graph& g, int cntRuns) {
+double thrustRuntime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
@@ -74,17 +97,19 @@ double thrustRuntime(const Graph& g, int cntRuns) {
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
+    // TODO: Store the results in mst
+    // mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
+    // ...
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    
 }
 
 template <class T_GRAPH>
-double cpuRuntime(const Graph& g, int cntRuns) {
+double cpuRuntime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
-    // allow for warm-up
-    T_GRAPH mst;
+    // allow for warm-up, store the result
     cpuPrimAlgorithm(g, mst);
     // now the real test run
     begin = steady_clock::now();
@@ -102,7 +127,7 @@ double cpuRuntime(const Graph& g, int cntRuns) {
 #ifdef WITH_BOOST
 struct do_nothing_dijkstra_visitor : boost::default_dijkstra_visitor {};
 
-double boostRuntime(const Graph& g, int cntRuns) {
+double boostRuntime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     BoostGraph boost_g;
     double runtime;
@@ -117,6 +142,14 @@ double boostRuntime(const Graph& g, int cntRuns) {
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
+
+    // store the result
+    mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
+    for (std::size_t i = 0; i != p.size(); ++i) {
+        if (p[i] != i) {
+            mst.set(i, p[i], g(i, p[i]));
+        }
+    }
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;
 }
@@ -131,50 +164,58 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         // run through all implementations and get runtime
         double runtime;
 
-        runtime = cpuRuntime<ListGraph>(g, cntRuns);
+        ListGraph cpu_l_mst;
+        runtime = cpuRuntime<ListGraph>(g, cntRuns, cpu_l_mst);
         // output to file 
         os << "cpu_l," << i
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
+                << "," << cpu_l_mst.sum_weights()
                 << std::endl;
-/*
 #ifdef WITH_BOOST
         // run through boost implementation
-        runtime = boostRuntime(g, cntRuns);
+        ListGraph boost_mst;
+        runtime = boostRuntime(g, cntRuns, boost_mst);
         // output to file 
-        os << "cpu_b," << i
+        os << "boost," << i
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
+                << "," << boost_mst.sum_weights()
                 << std::endl;
 #endif
+/*
         // run through thrust implementation
-        runtime = thrustRuntime(g, cntRuns);
+        ListGraph thrust_mst;
+        runtime = thrustRuntime(g, cntRuns, thrust_mst);
         // output to file 
-        os << "thrus," << i
+        os << "thrust," << i
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
+                << "," << thrust_mst.sum_weights()
                 << std::endl;
 */
         // run through cuda implementation
-        runtime = cudaRuntime(g, cntRuns);
+        ListGraph cuda_mst;
+        runtime = cudaRuntime(g, cntRuns, cuda_mst);
         // output to file 
         os << "cuda," << i
                 << "," << num_vertices
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
+                << "," << -1 // cpu_l_mst.sum_weights()   FIXME, sie cudaRuntime above
                 << std::endl;
     }
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "implementation,vertices,density,weight_range,runtime" << std::endl;
+    std::cout << "implementation,vertices,density,weight_range,runtime,min" << std::endl;
     runParamSet(std::cout, 10000, 50,  0.01, 3, 1, 42);
     runParamSet(std::cout, 50000, 50, 0.001, 3, 1, 42);
 }
