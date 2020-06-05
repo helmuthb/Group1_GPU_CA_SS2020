@@ -24,7 +24,9 @@ void ListGraph::set(uint32_t x, uint32_t y, int32_t wNew) {
 
 void ListGraph::neighbors(uint32_t x, std::vector<EdgeTarget>& list) const {
     list.reserve(w[x].size());
-    std::copy(w[x].begin(), w[x].end(), list.begin());
+    for (auto it = w[x].begin(); it != w[x].end(); ++it) {
+        list.push_back(EdgeTarget(it->first, it->second));
+    }
 }
 
 int32_t ListGraph::operator() (uint32_t x, uint32_t y) const {
