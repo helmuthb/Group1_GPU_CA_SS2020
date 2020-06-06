@@ -99,7 +99,6 @@ __global__ void mst(uint2 *inbound_vertices, uint2 *outbound_vertices, uint2 *sh
         //    inbound_vertices[start_index+end_index]
         // and each edge .x = the other node, and .y = the weight
         uint32_t start_index = outbound_vertices[*current_node].y;
-        // TODO: Possibly off-by-one? if x == 2, then the last index is start_index+1, not +2
         uint32_t end_index = start_index + outbound_vertices[*current_node].x;
 
         if (idx >= start_index && idx < end_index) {
