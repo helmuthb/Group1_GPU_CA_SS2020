@@ -109,7 +109,7 @@ __global__ void mst(uint2 *inbound_vertices, uint2 *outbound_vertices, uint2 *sh
         }
         __syncthreads();
 
-        shm[threadIdx.x].y = idx < max_nodes && inbound[idx] > max_nodes ? weights[idx] : UINT32_MAX;
+        shm[threadIdx.x].y = idx < num_nodes && inbound[idx] > num_nodes ? weights[idx] : UINT32_MAX;
         shm[threadIdx.x].x = idx;
 
         __syncthreads();
@@ -189,7 +189,7 @@ void cudaPrimAlgorithm(uint2 *inbound_vertices, uint2 *outbound_vertices, uint2 
     cudaMemcpy(d_current_node, &current_node, sizeof(uint32_t), cudaMemcpyHostToDevice);
 
     // Execute the single-block kernel
-    mst << <1, BLOCKSIZE> >> (d_inbound_vertices, d_outbound_vertices, d_shape,
+    mst <<<1, BLOCKSIZE>>> (d_inbound_vertices, d_outbound_vertices, d_shape,
                       d_inbound, d_outbound, d_weights, d_current_node);
 
     // Copy the results back to host memory
