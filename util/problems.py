@@ -6,6 +6,11 @@ from collections import namedtuple
 import sys
 
 
+SIZEOF_UINT2  = 8
+SIZEOF_INT32  = 4
+SIZEOF_UINT32 = 4
+
+
 Problem = namedtuple('Problem', ['vertices', 'densities'])
 Problem.__doc__ = '''A simple container for problem definitions'''
 
@@ -22,9 +27,9 @@ class ProblemDocumenter:
         Allocations as found in cuda/single-kernel
         '''
         # inbound_vertices: uint2[E * 2]
-        ecost = 4 * 2 * E
+        ecost = SIZEOF_UINT2 * 2 * E
         # outbound_vertices: uint2[V]
-        vcost = 4 * V
+        vcost = SIZEOF_UINT2 * V
         return vcost + ecost
 
     def thrust_memcost(self, V, E):
@@ -33,9 +38,9 @@ class ProblemDocumenter:
         Allocations as found in thrust/
         '''
         # target: vector<uint32_t>(2*E), weight: vector<int32_t>(2*E)
-        ecost = (4 * 2 * E) + (4 * 2 * E)
+        ecost = (SIZEOF_UINT32 * 2 * E) + (SIZEOF_INT32 * 2 * E)
         # num_edges: vector<uint32_t>(V), idx_edges: uint32_t>(V)
-        vcost = (4 * V) + (4 * V)
+        vcost = (SIZEOF_UINT32 * V) + (SIZEOF_UINT32 * V)
         return vcost + ecost
 
     def to_stdout(self):
