@@ -41,27 +41,12 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
 
-    // store the result
-    // FIXME: This is currently deactivated as there seems to be a bug in the
-    // CUDA implementation. For example, given 10 nodes, 0.5 density, weight
-    // 5000, I get the following values in outbound/inbound/weights:
-    //
-    //    2261431280 -> 0     w=4294967295
-    //    21874 -> 21874     w=4294967295
-    //    0 -> 0     w=1510
-    //    0 -> 0     w=4294967295
-    //    0 -> 7     w=1553
-    //    0 -> 0     w=4115
-    //    0 -> 4     w=2081
-    //    1491 -> 6     w=4294967295
-    //    6 -> 1     w=4294967295
-    //    4187 -> 2     w=4294967295
-    //
     mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
     for (uint32_t i = 0; i < V; ++i) {
-        ;
-        // FIXME: CUDA implementation uses unsigned weights
-        //mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
+        if (weights[i] != Graph::WEIGHT_INFTY) {
+            // FIXME: CUDA implementation uses unsigned weights
+            mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
+        }
     }
 
     delete[] inbound_vertices;
@@ -214,7 +199,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
-                << "," << -1 // cpu_l_mst.sum_weights()   FIXME, sie cudaRuntime above
+                << "," << cpu_l_mst.sum_weights()
                 << std::endl;
     }
 }
