@@ -199,7 +199,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << density
                 << "," << weight_range
                 << "," << runtime
-                << "," << cpu_l_mst.sum_weights()
+                << "," << cuda_mst.sum_weights()
                 << std::endl;
     }
 }
