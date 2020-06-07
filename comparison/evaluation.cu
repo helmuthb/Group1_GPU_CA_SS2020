@@ -18,44 +18,37 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
-    // prepare data for CUDA
-    uint2 * inbound_vertices, *outbound_vertices, *shape = NULL;
-    cudaSetup(g, inbound_vertices, outbound_vertices, shape);
-    const uint32_t V = shape->x;
+    const uint32_t V = g.num_vertices();
+    // Each edge is present twice: once from each vertex
+    const uint32_t E = 2*g.num_edges();
 
-    uint32_t *outbound = new uint32_t[V];
-    uint32_t *inbound = new uint32_t[V];
-    uint32_t *weights = new uint32_t[V];
+    // Inputs
+    uint2 vertices[V];
+    uint2 edges[E];
+    // Outputs
+    uint32_t outbound[V-1];
+    uint32_t inbound[V-1];
+    uint32_t weights[V-1];
+
+    // Prepare input data
+    cudaSetup(g, vertices, edges);
 
     // allow for warm-up
-    cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
-        inbound, outbound, weights);
+    cudaPrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
 
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
-            inbound, outbound, weights);
-        }
+        cudaPrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
+    }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
 
-    mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
-    for (uint32_t i = 0; i < V; ++i) {
-        if (weights[i] != Graph::WEIGHT_INFTY) {
-            // FIXME: CUDA implementation uses unsigned weights
-            mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
-        }
+    mst.resize(V, V-1, g.is_directed());
+    for (uint32_t i = 0; i < V-1; ++i) {
+        mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
     }
-
-    delete[] inbound_vertices;
-    delete[] outbound_vertices;
-    delete[] shape;
-
-    delete[] inbound;
-    delete[] outbound;
-    delete[] weights;
 
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    

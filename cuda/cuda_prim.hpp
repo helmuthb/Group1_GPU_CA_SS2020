@@ -9,12 +9,12 @@
 /**
  * Prepare for cuda version of Prim's algorith
  */
-void cudaSetup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices, uint2 *&shape);
+void cudaSetup(const Graph& g, uint2 *vertices, uint2 *edges);
 
 /**
  * Prim's algorithm
  */
-void cudaPrimAlgorithm(uint2 *inbound_vertices, uint2 *outbound_vertices, uint2 *shape,
-                       uint32_t *inbound, uint32_t *outbound, uint32_t *weights);
+void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices, uint2 *edges, uint32_t num_edges,
+                       uint32_t *outbound, uint32_t *inbound, uint32_t *weights);
 
 #endif
