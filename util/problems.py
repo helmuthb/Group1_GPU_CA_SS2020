@@ -3,12 +3,14 @@
 #
 
 from collections import namedtuple
+import math
 import sys
 
 
-SIZEOF_UINT2  = 8
-SIZEOF_INT32  = 4
-SIZEOF_UINT32 = 4
+SIZEOF_UINT2    = 8
+SIZEOF_INT32    = 4
+SIZEOF_UINT32   = 4
+CUDA_BLOCKSIZE  = 1024
 
 
 Problem = namedtuple('Problem', ['vertices', 'densities'])
@@ -30,7 +32,14 @@ class ProblemDocumenter:
         ecost = SIZEOF_UINT2 * 2 * E
         # outbound_vertices: uint2[V]
         vcost = SIZEOF_UINT2 * V
-        return vcost + ecost
+        # outbound, inbound, weights: uint32_t[V-1]
+        mcost = SIZEOF_UINT32 * (V-1)
+        mcost *= 3
+        # tmp_best, tmp_minweights: uint32_t[total_blocks]
+        blocks = int(math.ceil(V-1) / CUDA_BLOCKSIZE)
+        tcost = SIZEOF_INT32 * blocks
+        tcost *= 2
+        return vcost + ecost + mcost + tcost
 
     def thrust_memcost(self, V, E):
         '''Compute the memory requirements, in bytes, for the CUDA Thrust solution.
