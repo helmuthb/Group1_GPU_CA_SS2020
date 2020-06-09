@@ -199,6 +199,10 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 
 int main(int argc, char* argv[]) {
     std::cout << "implementation,seed,vertices,density,weight_range,runtime,min" << std::endl;
-    runParamSet(std::cout, 10000, 50,  0.01, 3, 1, 42);
-    runParamSet(std::cout, 50000, 50, 0.001, 3, 1, 42);
+    runParamSet(std::cout, 100,  50, 0.5, 3, 1, 42);
+    runParamSet(std::cout, 100,  50, 0.9, 3, 1, 42);
+    runParamSet(std::cout, 1000, 50, 0.2, 3, 1, 42);
+    runParamSet(std::cout, 1000, 50, 0.5, 3, 1, 42);
+    runParamSet(std::cout, 1000, 50, 0.7, 3, 1, 42);
+    runParamSet(std::cout, 1000, 50, 0.9, 3, 1, 42);
 }
