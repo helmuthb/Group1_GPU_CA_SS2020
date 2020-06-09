@@ -23,12 +23,12 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     const uint32_t E = 2*g.num_edges();
 
     // Inputs
-    uint2 vertices[V];
-    uint2 edges[E];
+    uint2 *vertices = new uint2[V];
+    uint2 *edges = new uint2[E];
     // Outputs
-    uint32_t outbound[V-1];
-    uint32_t inbound[V-1];
-    uint32_t weights[V-1];
+    uint32_t *outbound = new uint32_t[V-1];
+    uint32_t *inbound = new uint32_t[V-1];
+    uint32_t *weights = new uint32_t[V-1];
 
     // Prepare input data
     cudaSetup(g, vertices, edges);
@@ -49,6 +49,12 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     for (uint32_t i = 0; i < V-1; ++i) {
         mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
     }
+
+    delete[] vertices;
+    delete[] edges;
+    delete[] outbound;
+    delete[] inbound;
+    delete[] weights;
 
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    
