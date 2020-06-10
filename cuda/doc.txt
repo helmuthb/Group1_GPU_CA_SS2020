@@ -16,7 +16,7 @@
 // Options
 //////////////////////////
 
-#define BLOCKSIZE 1024
+#define BLOCKSIZE 256
 
 
 //
@@ -55,62 +55,6 @@ void cudaSetup(const Graph& g, uint2 *vertices, uint2 *edges)
 
 
 //
-// Kernel implementing the swap operation
-//
-__global__ void mst_swap(uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
-                         uint32_t indexA, uint32_t indexB)
-{
-    uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
-
-    // While theoretically possible to multi-thread this, the overhead of doing
-    // so for just 3 swap operations seems like overkill.
-    if (idx < 1) {
-        uint32_t outA = outbound[indexA];
-        uint32_t inA  = inbound[indexA];
-        uint32_t wA   = weights[indexA];
-        uint32_t outB = outbound[indexB];
-        uint32_t inB  = inbound[indexB];
-        uint32_t wB   = weights[indexB];
-
-        outbound[indexA] = outB;
-        inbound[indexA]  = inB;
-        weights[indexA]  = wB;
-        outbound[indexB] = outA;
-        inbound[indexB]  = inA;
-        weights[indexB]  = wA;
-    }
-}
-
-
-//
-// Host-sided function to swap to two entries in the MST data structures on the
-// device.
-//
-// This is assumed to be faster than launching a (one-threaded) kernel and
-// doing it there!
-//
-__host__ void mst_swap_on_host(uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
-                       uint32_t indexA, uint32_t indexB)
-{
-    uint32_t outA, outB, inA, inB, wA, wB;
-
-    cudaMemcpy(&outA, &outbound[indexA], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&inA,  &inbound[indexA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&wA,   &weights[indexA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&outB, &outbound[indexB], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&inB,  &inbound[indexB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&wB,   &weights[indexB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-    cudaMemcpy(&outbound[indexA], &outB, sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(&inbound[indexA],  &inB,  sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(&weights[indexA],  &wB,   sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(&outbound[indexB], &outA, sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(&inbound[indexB],  &inA,  sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(&weights[indexB],  &wA,   sizeof(uint32_t), cudaMemcpyHostToDevice);
-}
-
-
-//
 // Kernel implementing the weight update primitive
 //
 // Uses the compact adjacency list as read-only input, and writes to the three
@@ -128,13 +72,15 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
 
     // TODO: vdata and edata are identical for all threads executing the
     // update,  these could be cached in shared mem!
-
+    
     if (idx < num_remaining) {
         uint32_t other_vertex = inbound[idx];
 
         // Get edge offset and count for the current vertex
         // .x = count, .y = offset
         uint2 vdata = vertices[current_vertex];
+
+        //printf("                idx=%u C=%u offset=%u, count=%u v=%u\n", idx, current_vertex, vdata.y, vdata.x, v);
 
         // Iterate from offset to offset+count to find the weight from
         // current_vertex to other_vertex (if it exists)
@@ -143,11 +89,19 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
             if (edata.x == other_vertex) {
                 // If this edge provides a route to v better than the previously known one, replace it
                 if (edata.y < weights[idx]) {
+                    //printf("                 i=%2u e.vertex=%u w=%u HIT idx=%u\n", i,edata.x, edata.y, idx);
                     outbound[idx] = current_vertex;
                     weights[idx] = edata.y;
+                } else {
+                    //printf("                 i=%2u e.vertex=%u w=%u FAIL idx=%u\n", i, edata.x, edata.y, idx);
                 }
+            } else {
+                //printf("                 i=%2u e.vertex=%u w=%u MISS idx=%u\n", i, edata.x, edata.y, idx);
             }
         }
+    }
+    else {
+        //printf("                idx=%u    bailing\n", idx);
     }
 }
 
@@ -179,30 +133,42 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
         } else {
             shm_best[threadIdx.x] = indices[idx];
         }
-        shm_minweights[threadIdx.x] = weights[idx]; 
+        shm_minweights[threadIdx.x] = weights[idx];
+
+        //printf("        b=%u t=%u  best=%u  w=%u\n", blockIdx.x, threadIdx.x,
+        //        shm_best[threadIdx.x], shm_minweights[threadIdx.x]);
 
         __syncthreads();
 
-        // Perform the reduction, as per NVIDIA guidelines
+        // Perform the reduction
         for (uint32_t s = 1; s < blockDim.x; s *= 2) {
             uint32_t left = 2 * s * threadIdx.x;
+            //printf("        b=%u t=%u begin iter s=%u, left=%u\n", blockIdx.x, threadIdx.x, s, left);
 
             if (left < blockDim.x) {
                 uint32_t right = left + s;
                 // Input size might not be power of two, so only update when we can make a pair
                 if (right + (blockDim.x * blockIdx.x) < num_remaining) {
+                    //printf("            b=%u t=%u left=%u comparing right=%u\n",
+                    //                    blockIdx.x, threadIdx.x, left, right);
                     // If the best weight is not already at position ti, move it there
                     if (shm_minweights[right] < shm_minweights[left]) {
                         shm_best[left] = shm_best[right];
                         shm_minweights[left] = shm_minweights[right];
                     }
+                } else {
+                    //printf("            b=%u t=%u left=%u not comparing right=%u because total=%u is >=%u\n",
+                    //        blockIdx.x, threadIdx.x, left, right, right + block_idx, num_remaining);
                 }
+            } else {
+                //printf("            b=%u t=%u  bye-bye\n", blockIdx.x, threadIdx.x);
             }
             __syncthreads();
         }
 
         // The last active thread of the block writes the result back
         if (threadIdx.x == 0) {
+            //printf("        !! b=%u best=%u weight=%u\n" ,blockIdx.x, shm_best[0], shm_minweights[0]);
             tmp_best[blockIdx.x] = shm_best[0];
             tmp_minweights[blockIdx.x] = shm_minweights[0];
         }
@@ -214,31 +180,73 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
 // Entry point for CUDA Prim's Algorithm
 //
 // This uses:
-//   * Compact Adjacency List as proposed by Wang et al., based on Harish et al.
-//   * MST data structure as proposed by Wang et al.
 //
-void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
-                       uint2 *edges, uint32_t num_edges,
+// Compact Adjacency List   as proposed by Wang et al., based on Harish et al.
+// ----------------------
+// vertices: for each vertex with number k
+//      vertices[k].x = count of immediate neighbors
+//      vertices[k].y = offset of edge list in edges
+//
+// edges: edges ordered by vertex (see above)
+//      edges[*].x = vertex on other end
+//      edges[*].y = weight of edge
+//
+//      So for each vertex k:
+//         edge list offset = vertices[k].y
+//         num_edges        = vertices[k].x
+//
+//         edges of k       = edges[offset+0]
+//                            edges[offset+1]
+//                            edges[offset+..]
+//                            edges[offset+num_edges]
+//
+//                            with
+//                              edge[...].x = vertex on other end of the edge
+//                              edge[...].y = edge weight
+//
+// => The function cudaSetup() above can be used to initialize such a Compact Adjacency List!
+//
+//
+// MST data structure       as proposed by Wang et al.
+// ------------------
+// This data structure encodes
+//
+//      (outbound, inbound) = weight
+//
+// for the |V|-1 edges of the MST. The edges will be initialized to a ground
+// state, and then updated as the algorithm iterates.
+//
+// Initiallly, the |V|-1 pair are all hypothetically possible edges from the 0
+// node to any other node, and with infinite weight to mark the edge as
+// non-existent.
+//
+//      (0, 1)      = inf
+//      (0, 2)      = inf
+//      ...
+//      (0, |V|-1)  = inf
+//
+void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices, uint2 *edges, uint32_t num_edges,
                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
 
-    // Initialize the MST data structure
+    // Initialize the MST data structure as per above.
+    //printf("INIT: prepping R1, R2, R3\n");
     for (uint32_t i = 0; i < num_vertices - 1; ++i) {
         outbound[i] = 0;
         inbound[i] = i + 1;
         weights[i] = Graph::WEIGHT_INFTY;
+        //printf("    INIT: out[%u]=%u in[%u]=%u w[%u]=%u\n", i, outbound[i], i, inbound[i], i, weights[i]);
     }
 
     // Data structures in device memory
     uint2 *d_vertices, *d_edges;
     uint32_t *d_outbound, *d_inbound, *d_weights;
-    // Temporary result storage
+    // Temporary storages:
+    // Outputs from the first kernel invocation will be inputs for the second invocation
     uint32_t *d_tmp_best, *d_tmp_minweights;
 
     // Total number of blocks needed to process all edges (one thread per edge)
     uint32_t total_blocks = static_cast<uint32_t>(std::ceil(static_cast<float>(num_vertices-1) / BLOCKSIZE));
-    if (total_blocks > 1024) {
-        throw new std::out_of_range("Cannot reduce more than 1024 blocks");
-    }
+    printf("mst_size=%u total_blocks: %u\n", num_vertices-1, total_blocks);
 
     // Allocate memory for the data structures in device memory
     cudaMalloc(&d_vertices,       num_vertices     * sizeof(uint2));
@@ -261,15 +269,42 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     // We always start the graph at vertex 0
     uint32_t current_vertex = 0;
 
+    /*printf("vertices\n  x   y\n");
+    for (uint32_t i = 0; i < num_vertices; ++i) {
+        printf("%3d%4d\n", vertices[i].x, vertices[i].y);
+    }
+
+    printf("edges\n  x   y\n");
+    for (uint32_t i = 0; i < num_edges; ++i) {
+        printf("%3d%4d\n", edges[i].x, edges[i].y);
+    }*/
+
     for (uint32_t remaining_offset = 0; remaining_offset < num_vertices - 1; ++remaining_offset) {
-        uint32_t num_remaining        = num_vertices - 1 - remaining_offset;
+        //printf("Outer loop: ii=%d\n", ii);
+
+        // Calculate required number of blocks
+        uint32_t num_remaining = num_vertices - 1 - remaining_offset;
         uint32_t num_remaining_blocks = static_cast<uint32_t>(std::ceil(static_cast<float>(num_remaining) / BLOCKSIZE));
 
+        //printf("UPDT: num_remaining: %2u num_remaining_blocks: %u\n", num_remaining, num_remaining_blocks);
         mst_update <<<num_remaining_blocks, BLOCKSIZE>>> (
                 d_vertices, d_edges,
                 d_outbound+remaining_offset, d_inbound+remaining_offset, d_weights+remaining_offset,
                 current_vertex, num_remaining);
 
+        // DEBUG
+        cudaMemcpy(outbound, d_outbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(inbound, d_inbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(weights, d_weights, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        for (uint32_t i = 0; i < num_vertices - 1; ++i) {
+            if (i == remaining_offset) {
+                printf("----------\n");
+            }
+            printf("    UPDT: out[%u]=%u in[%u]=%u w[%u]=%u\n", i, outbound[i], i, inbound[i], i, weights[i]);
+        }
+        printf("\n");
+
+        // Then, get the node with the minimum weight
         // Invoke 1: minimum per block, stored in temporary result
         mst_minweight <<<num_remaining_blocks, BLOCKSIZE>>> (
                 // Let minweight index the data
@@ -280,33 +315,70 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
                 d_tmp_best, d_tmp_minweights,
                 num_remaining);
 
+        // DEBUG
+        uint32_t tinbound[total_blocks] = {0}, tweights[total_blocks] = {0};
+        cudaMemcpy(tinbound, d_tmp_best, total_blocks * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(tweights, d_tmp_minweights, total_blocks * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        for (uint32_t i = 0; i < total_blocks; ++i) {
+            printf("    FIND: in[%u]=%u w[%u]=%u\n", i, tinbound[i], i, tweights[i]);
+        }
+        printf("\n");
+
         // Invoke 2:
-        // If we have more than one block, find minimum of all blocks
+        // If we have more than one reduction, run it again, but this time,
+        // with the temporary buffers as both input and output
         if (total_blocks > 1) {
-            mst_minweight <<<1, total_blocks>>> (
+            printf("second block invocation\n");
+            mst_minweight <<<1, BLOCKSIZE>>> (
                     d_tmp_best, d_tmp_minweights,
                     d_tmp_best, d_tmp_minweights,
                     total_blocks);
         }
 
-        // The index of the best edge is now at the first position of d_tmp_best
         uint32_t index_of_best;
         cudaMemcpy(&index_of_best, d_tmp_best, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        printf("index of best=%u\n", index_of_best);
 
-        // If the best edge is not at the beginning, we must swap edges
-        // Note: I'm assuming that doing these via memcopies is cheaper than via an extra kernel
+        // Do we need to swap?
         if (index_of_best > 0) {
-            mst_swap<<<1, 1>>>(d_outbound, d_inbound, d_weights, remaining_offset, remaining_offset + index_of_best);
-        }
+            // I assume that doing these via memcopies is cheaper than via an
+            // extra kernel
+            uint32_t old_out, new_out, old_vertex, new_vertex, old_weight, new_weight;
+            cudaMemcpy(&old_out,    &d_outbound[remaining_offset],               sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&old_vertex, &d_inbound[remaining_offset],               sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&old_weight, &d_weights[remaining_offset],               sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&new_out,    &d_outbound[remaining_offset+index_of_best], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&new_vertex, &d_inbound[remaining_offset+index_of_best], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&new_weight, &d_weights[remaining_offset+index_of_best], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            
+            printf("ov=%u ow=%u nv=%u nw=%u\n", old_vertex, old_weight, new_vertex, new_weight);
 
-        // Finally, update current_vertex
+            cudaMemcpy(&d_outbound[remaining_offset],              &new_out, sizeof(uint32_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(&d_inbound[remaining_offset],               &new_vertex, sizeof(uint32_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(&d_weights[remaining_offset],               &new_weight, sizeof(uint32_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(&d_outbound[remaining_offset+index_of_best], &old_out, sizeof(uint32_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(&d_inbound[remaining_offset+index_of_best], &old_vertex, sizeof(uint32_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(&d_weights[remaining_offset+index_of_best], &old_weight, sizeof(uint32_t), cudaMemcpyHostToDevice);
+
+            // DEBUG
+            cudaMemcpy(outbound, d_outbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(inbound, d_inbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(weights, d_weights, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+            for (uint32_t i = 0; i < num_vertices - 1; ++i) {
+                printf("    MOVE: out[%u]=%u in[%u]=%u w[%u]=%u\n", i, outbound[i], i, inbound[i], i, weights[i]);
+            }
+        }
+        printf("\n########################################\n\n");
+
         cudaMemcpy(&current_vertex, &d_inbound[remaining_offset], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    } // Outer loop
+        printf("new best=%u\n", current_vertex);
+        //break;
+    }
 
     // Copy the results back to host memory
     cudaMemcpy(outbound, d_outbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(inbound,  d_inbound,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(weights , d_weights,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(inbound, d_inbound, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(weights, d_weights, (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
     // Free device memory
     cudaFree(d_vertices);
