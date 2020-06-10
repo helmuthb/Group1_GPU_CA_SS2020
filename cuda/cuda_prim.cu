@@ -55,6 +55,34 @@ void cudaSetup(const Graph& g, uint2 *vertices, uint2 *edges)
 
 
 //
+// Host-sided function to swap to two entries in the MST data structures on the
+// device.
+//
+// This is assumed to be faster than launching a (one-threaded) kernel and
+// doing it there!
+//
+__host__ void mst_swap_on_host(uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
+                       uint32_t indexA, uint32_t indexB)
+{
+    uint32_t outA, outB, inA, inB, wA, wB;
+
+    cudaMemcpy(&outA, &outbound[indexA], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&inA,  &inbound[indexA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&wA,   &weights[indexA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&outB, &outbound[indexB], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&inB,  &inbound[indexB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&wB,   &weights[indexB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+    cudaMemcpy(&outbound[indexA], &outB, sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(&inbound[indexA],  &inB,  sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(&weights[indexA],  &wB,   sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(&outbound[indexB], &outA, sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(&inbound[indexB],  &inA,  sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(&weights[indexB],  &wA,   sizeof(uint32_t), cudaMemcpyHostToDevice);
+}
+
+
+//
 // Kernel implementing the weight update primitive
 //
 // Uses the compact adjacency list as read-only input, and writes to the three
@@ -72,7 +100,7 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
 
     // TODO: vdata and edata are identical for all threads executing the
     // update,  these could be cached in shared mem!
-    
+
     if (idx < num_remaining) {
         uint32_t other_vertex = inbound[idx];
 
@@ -240,23 +268,7 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
         // If the best edge is not at the beginning, we must swap edges
         // Note: I'm assuming that doing these via memcopies is cheaper than via an extra kernel
         if (index_of_best > 0) {
-            uint32_t outA, outB, inA, inB, wA, wB;
-            uint32_t idxA = remaining_offset;
-            uint32_t idxB = remaining_offset + index_of_best;
-
-            cudaMemcpy(&outA, &d_outbound[idxA], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&inA,  &d_inbound[idxA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&wA,   &d_weights[idxA],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&outB, &d_outbound[idxB], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&inB,  &d_inbound[idxB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&wB,   &d_weights[idxB],  sizeof(uint32_t), cudaMemcpyDeviceToHost);
-            
-            cudaMemcpy(&d_outbound[idxA], &outB, sizeof(uint32_t), cudaMemcpyHostToDevice);
-            cudaMemcpy(&d_inbound[idxA],  &inB,  sizeof(uint32_t), cudaMemcpyHostToDevice);
-            cudaMemcpy(&d_weights[idxA],  &wB,   sizeof(uint32_t), cudaMemcpyHostToDevice);
-            cudaMemcpy(&d_outbound[idxB], &outA, sizeof(uint32_t), cudaMemcpyHostToDevice);
-            cudaMemcpy(&d_inbound[idxB],  &inA,  sizeof(uint32_t), cudaMemcpyHostToDevice);
-            cudaMemcpy(&d_weights[idxB],  &wA,  sizeof(uint32_t), cudaMemcpyHostToDevice);
+            mst_swap_on_host(d_outbound, d_inbound, d_weights, remaining_offset, remaining_offset + index_of_best);
         }
 
         // Finally, update current_vertex
