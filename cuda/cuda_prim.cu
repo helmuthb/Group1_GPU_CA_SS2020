@@ -166,8 +166,10 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
 
             if (left < blockDim.x) {
                 uint32_t right = left + s;
-                // Input size might not be power of two, so only update when we can make a pair
-                if (right + (blockDim.x * blockIdx.x) < num_remaining) {
+                // Conditions:
+		//  1. Don't test outside of the block (eg uneven block size)
+		//  2. Input size might not be power of two, so cut off  appropriately
+                if (right < blockDim.x && right + (blockDim.x * blockIdx.x) < num_remaining) {
                     // If the best weight is not already at position ti, move it there
                     if (shm_minweights[right] < shm_minweights[left]) {
                         shm_best[left] = shm_best[right];
