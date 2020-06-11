@@ -57,27 +57,32 @@ void cudaSetup(const Graph& g, uint2 *vertices, uint2 *edges)
 //
 // Kernel implementing the swap operation
 //
-__global__ void mst_swap(uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
-                         uint32_t indexA, uint32_t indexB)
+//
+__global__ void mst_swap_and_next(uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
+                                  uint32_t *tmp_best, uint32_t *current_vertex)
 {
     uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-    // While theoretically possible to multi-thread this, the overhead of doing
-    // so for just 3 swap operations seems like overkill.
-    if (idx < 1) {
-        uint32_t outA = outbound[indexA];
-        uint32_t inA  = inbound[indexA];
-        uint32_t wA   = weights[indexA];
-        uint32_t outB = outbound[indexB];
-        uint32_t inB  = inbound[indexB];
-        uint32_t wB   = weights[indexB];
+    uint32_t best = *tmp_best;
+    if (idx == 0) {
+        // No need to swap if the best edge is already at the front
+        if (best != 0) {
+            uint32_t outA = outbound[0];
+            uint32_t inA  = inbound[0];
+            uint32_t wA   = weights[0];
+            uint32_t outB = outbound[best];
+            uint32_t inB  = inbound[best];
+            uint32_t wB   = weights[best];
 
-        outbound[indexA] = outB;
-        inbound[indexA]  = inB;
-        weights[indexA]  = wB;
-        outbound[indexB] = outA;
-        inbound[indexB]  = inA;
-        weights[indexB]  = wA;
+            outbound[0]    = outB;
+            inbound[0]     = inB;
+            weights[0]     = wB;
+            outbound[best] = outA;
+            inbound[best]  = inA;
+            weights[best]  = wA;
+        }
+
+        *current_vertex = inbound[0];
     }
 }
 
@@ -89,12 +94,12 @@ __global__ void mst_swap(uint32_t *outbound, uint32_t *inbound, uint32_t *weight
 // MST data structures. Each thread accesses only one "row" of the MST data
 // structure, so there is no need to synchronize anything.
 //
-// current_vertex is the ID of the vertex from which the new paths are to be
+// current_vertex points to the ID of the vertex from which the new paths are to be
 // checked, and num_remaining is the offset of the not-yet-fixed edges.
 //  
 __global__ void mst_update(uint2 *vertices, uint2 *edges,
                            uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
-                           uint32_t current_vertex, uint32_t num_remaining)
+                           uint32_t *current_vertex, uint32_t num_remaining)
 {
     uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -106,7 +111,7 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
 
         // Get edge offset and count for the current vertex
         // .x = count, .y = offset
-        uint2 vdata = vertices[current_vertex];
+        uint2 vdata = vertices[*current_vertex];
 
         // Iterate from offset to offset+count to find the weight from
         // current_vertex to other_vertex (if it exists)
@@ -115,7 +120,7 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
             if (edata.x == other_vertex) {
                 // If this edge provides a route to v better than the previously known one, replace it
                 if (edata.y < weights[idx]) {
-                    outbound[idx] = current_vertex;
+                    outbound[idx] = *current_vertex;
                     weights[idx] = edata.y;
                 }
             }
@@ -204,7 +209,7 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     uint2 *d_vertices, *d_edges;
     uint32_t *d_outbound, *d_inbound, *d_weights;
     // Temporary result storage
-    uint32_t *d_tmp_best, *d_tmp_minweights;
+    uint32_t *d_tmp_best, *d_tmp_minweights, *d_current_vertex;
 
     // Total number of blocks needed to process all edges (one thread per edge)
     uint32_t total_blocks = static_cast<uint32_t>(std::ceil(static_cast<float>(num_vertices-1) / BLOCKSIZE));
@@ -220,6 +225,7 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     cudaMalloc(&d_weights,        (num_vertices-1) * sizeof(uint32_t));
     cudaMalloc(&d_tmp_best,       total_blocks     * sizeof(uint32_t));
     cudaMalloc(&d_tmp_minweights, total_blocks     * sizeof(uint32_t));
+    cudaMalloc(&d_current_vertex, 1                * sizeof(uint32_t));
 
     // Transfer inputs to device memory
     cudaMemcpy(d_vertices, vertices, num_vertices     * sizeof(uint2),    cudaMemcpyHostToDevice);
@@ -229,9 +235,7 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     cudaMemcpy(d_weights,  weights,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
     cudaMemset(d_tmp_best,       0,  total_blocks     * sizeof(uint32_t));
     cudaMemset(d_tmp_minweights, 0,  total_blocks     * sizeof(uint32_t));
-
-    // We always start the graph at vertex 0
-    uint32_t current_vertex = 0;
+    cudaMemset(d_current_vertex, 0,  1                * sizeof(uint32_t));
 
     for (uint32_t remaining_offset = 0; remaining_offset < num_vertices - 1; ++remaining_offset) {
         uint32_t num_remaining        = num_vertices - 1 - remaining_offset;
@@ -240,7 +244,7 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
         mst_update <<<num_remaining_blocks, BLOCKSIZE>>> (
                 d_vertices, d_edges,
                 d_outbound+remaining_offset, d_inbound+remaining_offset, d_weights+remaining_offset,
-                current_vertex, num_remaining);
+                d_current_vertex, num_remaining);
 
         // Invoke 1: minimum per block, stored in temporary result
         mst_minweight <<<num_remaining_blocks, BLOCKSIZE>>> (
@@ -261,18 +265,10 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
                     total_blocks);
         }
 
-        // The index of the best edge is now at the first position of d_tmp_best
-        uint32_t index_of_best;
-        cudaMemcpy(&index_of_best, d_tmp_best, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
         // If the best edge is not at the beginning, we must swap edges
-        if (index_of_best > 0) {
-            mst_swap<<<1, 1>>>(d_outbound, d_inbound, d_weights,
-                               remaining_offset, remaining_offset + index_of_best);
-        }
-
-        // Finally, update current_vertex
-        cudaMemcpy(&current_vertex, &d_inbound[remaining_offset], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        mst_swap_and_next <<<1, 1>>> (
+                d_outbound+remaining_offset, d_inbound+remaining_offset, d_weights+remaining_offset,
+                &d_tmp_best[0], d_current_vertex);
     } // Outer loop
 
     // Copy the results back to host memory
@@ -288,4 +284,5 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     cudaFree(d_weights);
     cudaFree(d_tmp_best);
     cudaFree(d_tmp_minweights);
+    cudaFree(d_current_vertex);
 }
