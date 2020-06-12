@@ -8,10 +8,10 @@ CUDAFLAGS = -O3 -I$(BASE) -I$(CPU_DIR) -I$(THRUST_DIR) -I$(CUDA_DIR) -DWITH_BOOS
 
 all : evaluation
 
-evaluation : evaluation.o $(BASE)/generator.o $(BASE)/graph.o $(BASE)/matrix_graph.o $(BASE)/sparse_graph.o $(BASE)/list_graph.o $(CPU_DIR)/cpu_prim.o $(THRUST_DIR)/thrust_prim.o $(CUDA_DIR)/cuda_prim.o
+evaluation : evaluation.o $(BASE)/generator.o $(BASE)/graph.o $(BASE)/matrix_graph.o $(BASE)/sparse_graph.o $(BASE)/list_graph.o $(CPU_DIR)/cpu_prim.o $(CPU_DIR)/cpu_prim2.o $(THRUST_DIR)/thrust_prim.o $(CUDA_DIR)/cuda_prim.o
 	$(NVCC) $(CUDAFLAGS) $^ -o $@
 
-evaluation.o : evaluation.cu $(BASE)/graph.hpp $(BASE)/matrix_graph.hpp $(BASE)/sparse_graph.hpp $(BASE)/list_graph.hpp $(BASE)/generator.hpp $(CPU_DIR)/cpu_prim.hpp $(THRUST_DIR)/thrust_prim.hpp $(CUDA_DIR)/cuda_prim.hpp
+evaluation.o : evaluation.cu $(BASE)/graph.hpp $(BASE)/matrix_graph.hpp $(BASE)/sparse_graph.hpp $(BASE)/list_graph.hpp $(BASE)/generator.hpp $(CPU_DIR)/cpu_prim.hpp $(CPU_DIR)/cpu_prim2.hpp $(THRUST_DIR)/thrust_prim.hpp $(CUDA_DIR)/cuda_prim.hpp
 
 %.o : %.cu
 	$(NVCC) $(CUDAFLAGS) -c $< -o $@

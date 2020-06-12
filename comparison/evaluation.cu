@@ -6,6 +6,7 @@
 #include "cuda_prim.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
+#include "cpu_prim2.hpp"
 #include <chrono>
 #include <iostream>
 #ifdef WITH_BOOST
@@ -99,6 +100,27 @@ double cpuRuntime(const Graph& g, int cntRuns) {
     return 1000.*runtime/cntRuns;
 }
 
+template <class T_GRAPH>
+double cpuRuntime2(const Graph& g, int cntRuns) {
+    steady_clock::time_point begin, end;
+    double runtime;
+
+    // allow for warm-up
+    T_GRAPH mst;
+    cpuPrim2Algorithm(g, mst);
+    // now the real test run
+    begin = steady_clock::now();
+    for (int i=0; i<cntRuns; ++i) {
+        MatrixGraph mst2;
+        // find MST solution
+        cpuPrim2Algorithm(g, mst2);
+    }
+    end = steady_clock::now();
+    runtime = (duration_cast<duration<double>>(end-begin)).count();
+    // return as miliseconds per round
+    return 1000.*runtime/cntRuns;
+}
+
 #ifdef WITH_BOOST
 struct do_nothing_dijkstra_visitor : boost::default_dijkstra_visitor {};
 
@@ -146,6 +168,9 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = cpuRuntime<ListGraph>(g, cntRuns);
         // output to file 
         os << "cpu_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+        runtime = cpuRuntime2<ListGraph>(g, cntRuns);
+        // output to file 
+        os << "cpu2_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
 /*
 #ifdef WITH_BOOST
         // run through boost implementation

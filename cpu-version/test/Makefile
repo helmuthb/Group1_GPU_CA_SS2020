@@ -1,13 +1,19 @@
 BASE = ../../base
 CXXFLAGS = -Wall -I.. -I$(BASE) -I$(BASE)/test -DWITH_BOOST
 
-test : test_cpu_prim
+test : test_cpu_prim test_cpu_prim2
 
 test_cpu_prim : test_cpu_prim.o ../cpu_prim.o $(BASE)/graph.o $(BASE)/matrix_graph.o $(BASE)/sparse_graph.o
 	g++ $^ -o $@
 	./test_cpu_prim || (rm test_cpu_prim; exit 1)
 
+test_cpu_prim2 : test_cpu_prim2.o ../cpu_prim2.o $(BASE)/graph.o $(BASE)/matrix_graph.o $(BASE)/sparse_graph.o
+	g++ $^ -o $@
+	./test_cpu_prim2 || (rm test_cpu_prim2; exit 1)
+
 test_cpu_prim.o : test_cpu_prim.cpp ../cpu_prim.hpp $(BASE)/graph.hpp $(BASE)/matrix_graph.hpp $(BASE)/sparse_graph.o
+
+test_cpu_prim2.o : test_cpu_prim2.cpp ../cpu_prim2.hpp $(BASE)/graph.hpp $(BASE)/matrix_graph.hpp $(BASE)/sparse_graph.o
 
 clean :
 	rm -f *.o test_cpu_prim
