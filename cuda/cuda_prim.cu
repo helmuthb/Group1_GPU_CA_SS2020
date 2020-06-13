@@ -166,10 +166,8 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
 
             if (left < blockDim.x) {
                 uint32_t right = left + s;
-                // Conditions:
-		//  1. Don't test outside of the block (eg uneven block size)
-		//  2. Input size might not be power of two, so cut off  appropriately
-                if (right < blockDim.x && right + (blockDim.x * blockIdx.x) < num_remaining) {
+                // Only compare if the counterpart is still within bounds
+                if (right + (blockDim.x * blockIdx.x) < num_remaining) {
                     // If the best weight is not already at position ti, move it there
                     if (shm_minweights[right] < shm_minweights[left]) {
                         shm_best[left] = shm_best[right];
@@ -213,10 +211,17 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     // Temporary result storage
     uint32_t *d_tmp_best, *d_tmp_minweights, *d_current_vertex;
 
+    if (BLOCKSIZE == 1) {
+        throw new std::out_of_range("BLOCKSIZE must be greater than 1");
+    }
+    else if (ceil(log2(BLOCKSIZE)) != floor(log2(BLOCKSIZE))) {
+        throw new std::out_of_range("BLOCKSIZE must be a power of 2");
+    }
+
     // Total number of blocks needed to process all edges (one thread per edge)
     uint32_t total_blocks = static_cast<uint32_t>(std::ceil(static_cast<float>(num_vertices-1) / BLOCKSIZE));
-    if (total_blocks > 1024) {
-        throw new std::out_of_range("Cannot reduce more than 1024 blocks");
+    if (total_blocks > BLOCKSIZE) {
+        throw new std::out_of_range("Cannot reduce more than BLOCKSIZE blocks");
     }
 
     // Allocate memory for the data structures in device memory
