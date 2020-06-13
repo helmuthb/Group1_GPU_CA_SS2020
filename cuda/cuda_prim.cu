@@ -102,6 +102,9 @@ __device__ void warp64MinReduce(volatile uint32_t *sKey, volatile uint32_t *sVal
     }
 }
 
+__shared__ uint32_t sKey[BLOCKSIZE];
+__shared__ uint32_t sVal[BLOCKSIZE];
+
 /**
  * minReduce: step for reduction
  * if blockSize < n this step has to be called a second time.
@@ -112,8 +115,6 @@ template <unsigned int blockSize>
 __global__ void minReduce(uint32_t *inKey, uint32_t *inVal, uint32_t *outKey, uint32_t *outVal,
                           uint32_t *start, uint32_t end)
 {
-    extern __shared__ uint32_t sKey[];
-    extern __shared__ uint32_t sVal[];
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockSize*2) + tid;
     unsigned int gridSize = blockSize * 2 * gridDim.x;
