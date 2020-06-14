@@ -13,33 +13,29 @@
 
 
 #define NUM_RUNS 1
-#define NUM_THREADS 2
-#define NUM_BLOCKS 16
 #define SHM_FACTOR 2
 
-#define NUM_VERTICES 32
-#define DENSITY 0.01
+#define NUM_VERTICES 513
+#define DENSITY 0.2
 #define MIN_WEIGHT 0
 #define MAX_WEIGHT 50
 
 using namespace std;
 
-__shared__ uint2 shm[NUM_THREADS * SHM_FACTOR];
-
-__global__ void min_reduction1(uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint2 *v_red) {
+__global__ void min_reduction1(uint32_t *inbound, uint32_t *weights, uint2 *v_red) {
 
 	uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if (threadIdx.x < NUM_THREADS * SHM_FACTOR) {
-		shm[threadIdx.x].x = idx;
-		shm[threadIdx.x + NUM_THREADS].x = idx + NUM_THREADS;
-		shm[threadIdx.x].y = idx < NUM_VERTICES && inbound[idx] > NUM_VERTICES ? weights[idx] : UINT32_MAX;
-		shm[threadIdx.x + NUM_THREADS].y = UINT32_MAX;
-	}
+	extern __shared__ uint2 shm[];
 
+	shm[threadIdx.x].x = idx;
+	shm[threadIdx.x + blockDim.x].x = idx + blockDim.x;
+	shm[threadIdx.x].y = idx < NUM_VERTICES && inbound[idx] > NUM_VERTICES ? weights[idx] : UINT32_MAX;
+	shm[threadIdx.x + blockDim.x].y = UINT32_MAX;
+	
 	__syncthreads();
 
-	for (int j = NUM_THREADS * SHM_FACTOR; j > 1; j /= 2) {
+	for (int j = blockDim.x * SHM_FACTOR; j > 1; j /= 2) {
 		for (int k = 0; k < SHM_FACTOR; k++) {
 			if (shm[threadIdx.x].y > shm[threadIdx.x + j / 2].y) {
 				shm[threadIdx.x].x = shm[threadIdx.x + j / 2].x;
@@ -55,11 +51,11 @@ __global__ void min_reduction1(uint32_t *outbound, uint32_t *inbound, uint32_t *
 	}
 }
 
-__global__ void min_reduction2(uint2 *v_red, uint32_t *current_node, uint32_t *last_node) {
+__global__ void min_reduction2(uint2 *v_red, uint32_t *current_node, uint32_t *last_node, uint32_t red1_blocks) {
 
 	uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if (NUM_BLOCKS == 1) {
+	if (red1_blocks == 1) {
 		if (idx == 1) {
 			*last_node = *current_node;
 			*current_node = v_red[0].x;
@@ -67,10 +63,10 @@ __global__ void min_reduction2(uint2 *v_red, uint32_t *current_node, uint32_t *l
 		return;
 	}
 
-	uint32_t half_size = NUM_BLOCKS / 2;
+	uint32_t half_size = red1_blocks / 2;
 
 	for (int j = half_size; j > 1; j /= 2) {
-		for (int i = 0; i < j; i += NUM_THREADS) {
+		for (int i = 0; i < j; i += blockDim.x) {
 			if (idx + i < j) {
 				if (v_red[idx + i + j].y < v_red[idx + i].y) {
 					v_red[idx + i].x = v_red[idx + i + j].x;
@@ -89,32 +85,25 @@ __global__ void min_reduction2(uint2 *v_red, uint32_t *current_node, uint32_t *l
 			*current_node = v_red[0].x;
 		}
 	}
-	
-	/*if (idx == 0) {
-		printf("CURRENT NODE: %d , LAST NODE: %d\n", *current_node, *last_node);
-	}*/
 }
 
-__global__ void update_mst(uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t *current_node) {
+__global__ void update_mst(uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *weights, uint32_t *current_node) {
 
 	uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
-
-	//print(inbound, outbound, weights, idx, NUM_VERTICES);
 
 	uint32_t start_index = outbound_vertices[*current_node].y;
 	uint32_t end_index = start_index + outbound_vertices[*current_node].x;
 
-	if (idx  < end_index - start_index) {
+	if (idx < end_index - start_index) {
 		uint32_t edge_idx = idx + start_index;
 		if (inbound_vertices[edge_idx].y < weights[inbound_vertices[edge_idx].x]) {
 			weights[inbound_vertices[edge_idx].x] = inbound_vertices[edge_idx].y;
 			outbound[inbound_vertices[edge_idx].x] = *current_node;
 		}
 	}
-	//print(inbound, outbound, weights, idx, NUM_VERTICES);
 }
 
-__global__ void update_mst2(uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t *current_node, uint32_t *last_node) {
+__global__ void update_mst2(uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t *current_node, uint32_t *last_node) {
 
 	uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -124,8 +113,6 @@ __global__ void update_mst2(uint2 *outbound_vertices, uint2 *inbound_vertices, u
 		weights[*last_node] = weights[*current_node];
 		weights[*current_node] = UINT32_MAX;
 	}
-
-	//print(inbound, outbound, weights, idx, NUM_VERTICES);
 }
 
 
@@ -148,7 +135,7 @@ void cuda_setup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_verti
 	}
 }
 
-void allocate_resources(uint2 *& inbound_vertices, uint2 *& outbound_vertices, uint2 *&shape, uint2 *& d_inbound_vertices, uint2 *& d_outbound_vertices, uint2 *&d_shape, uint2 *&d_red_array, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t current_node, uint32_t *&d_outbound, uint32_t *&d_inbound, uint32_t *&d_weights, uint32_t *&d_current_node, uint32_t *&d_last_node) {
+void allocate_resources(uint2 *& inbound_vertices, uint2 *& outbound_vertices, uint2 *&shape, uint2 *& d_inbound_vertices, uint2 *& d_outbound_vertices, uint2 *&d_shape, uint2 *&d_red_array, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t current_node, uint32_t *&d_outbound, uint32_t *&d_inbound, uint32_t *&d_weights, uint32_t *&d_current_node, uint32_t *&d_last_node, uint32_t num_blocks) {
 	cudaMalloc(&d_inbound_vertices, shape->y * 2 * sizeof(uint2));
 	cudaMalloc(&d_outbound_vertices, shape->x * sizeof(uint2));
 	cudaMalloc(&d_shape, sizeof(uint2));
@@ -159,7 +146,7 @@ void allocate_resources(uint2 *& inbound_vertices, uint2 *& outbound_vertices, u
 	cudaMalloc(&d_current_node, sizeof(uint32_t));
 	cudaMalloc(&d_last_node, sizeof(uint32_t));
 
-	cudaMalloc(&d_red_array, NUM_BLOCKS * sizeof(uint2));
+	cudaMalloc(&d_red_array, num_blocks * sizeof(uint2));
 
 	cudaMemcpy(d_inbound_vertices, inbound_vertices, shape->y * 2 * sizeof(uint2), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_outbound_vertices, outbound_vertices, shape->x * sizeof(uint2), cudaMemcpyHostToDevice);
@@ -187,10 +174,19 @@ void free_resources(uint2 *& inbound_vertices, uint2 *& outbound_vertices, uint2
 	delete[] inbound_vertices;
 	delete[] outbound_vertices;
 	delete[] shape;
+}
 
-	/*delete[] inbound;
-	delete[] outbound;
-	delete[] weights;*/
+uint32_t calc_num_blocks(uint32_t num_vertices) {
+	if (num_vertices < 512) {
+		return 0;
+	}
+	uint32_t sqr = sqrt(num_vertices);
+	uint32_t factor = 1;
+	while (sqr != 0) {
+		sqr = sqr >> 1;
+		factor++;
+	}
+	return factor;
 }
 
 void print_result(uint32_t * outbound, uint32_t *inbound, uint32_t *weights, uint32_t V) {
@@ -229,7 +225,7 @@ int main()
 	//cin >> g;
 
 	// write to stdout
-	cout << g << endl;
+	//cout << g << endl;
 
 	for (int i = 0; i < NUM_RUNS; i++) {
 
@@ -258,14 +254,22 @@ int main()
 		cout << "Number of Vertices: " << shape[0].x << endl << "Number of edges: " << shape[0].y << endl;
 		*/
 
-		allocate_resources(inbound_vertices, outbound_vertices, shape, d_inbound_vertices, d_outbound_vertices, d_shape, d_red_array, outbound, inbound, weights, current_node, d_outbound, d_inbound, d_weights, d_current_node, d_last_node);
+		uint32_t num_blocks_factor = calc_num_blocks(NUM_VERTICES);
+
+		uint32_t num_blocks = 1 << num_blocks_factor;
+		uint32_t num_threads = num_blocks_factor == 0 ? NUM_VERTICES : 1 << (num_blocks_factor - 2);
+
+		allocate_resources(inbound_vertices, outbound_vertices, shape, d_inbound_vertices, d_outbound_vertices, d_shape, d_red_array, outbound, inbound, weights, current_node, d_outbound, d_inbound, d_weights, d_current_node, d_last_node, num_blocks);
+
+		cout << "NUM BLOCKS " << num_blocks << "NUM THREADS " << num_threads << endl;
+		uint32_t shm_size = num_threads * sizeof(uint2) * SHM_FACTOR;
 
 		begin = chrono::steady_clock::now();
 		for (int i = 0; i < NUM_VERTICES - 1; i++) {
-			update_mst << <NUM_BLOCKS, NUM_THREADS >> > (d_outbound_vertices, d_inbound_vertices, d_outbound, d_inbound, d_weights, d_current_node);
-			min_reduction1 << <NUM_BLOCKS, NUM_THREADS >> > (d_outbound, d_inbound, d_weights, d_red_array);
-			min_reduction2 << <1, NUM_THREADS >> > (d_red_array, d_current_node, d_last_node);
-			update_mst2 << <NUM_BLOCKS, NUM_THREADS >> > (d_outbound_vertices, d_inbound_vertices, d_outbound, d_inbound, d_weights, d_current_node, d_last_node);
+			update_mst << <num_blocks, num_threads >> > (d_outbound_vertices, d_inbound_vertices, d_outbound, d_weights, d_current_node);
+			min_reduction1 << <num_blocks, num_threads, shm_size >> > (d_inbound, d_weights, d_red_array);
+			min_reduction2 << <1, num_threads >> > (d_red_array, d_current_node, d_last_node, num_blocks);
+			update_mst2 << <num_blocks, num_threads >> > (d_outbound, d_inbound, d_weights, d_current_node, d_last_node);
 		}
 		end = chrono::steady_clock::now();
 		runtime = (chrono::duration_cast<chrono::duration<double>>(end - begin)).count() * 1000;
