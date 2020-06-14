@@ -4,7 +4,7 @@
 #include <device_launch_parameters.h>
 #include <cuda.h>
 
-#include "matrix_graph.hpp"
+#include "list_graph.hpp"
 #include "generator.hpp"
 #include "graph.hpp"
 #include "print_helper.cu"
@@ -13,12 +13,12 @@
 
 
 #define NUM_RUNS 1
-#define NUM_THREADS 1024
-#define NUM_BLOCKS 8192
+#define NUM_THREADS 2
+#define NUM_BLOCKS 16
 #define SHM_FACTOR 2
 
-#define NUM_VERTICES 1000
-#define DENSITY 0.5
+#define NUM_VERTICES 32
+#define DENSITY 0.01
 #define MIN_WEIGHT 0
 #define MAX_WEIGHT 50
 
@@ -36,7 +36,7 @@ __global__ void min_reduction1(uint32_t *outbound, uint32_t *inbound, uint32_t *
 		shm[threadIdx.x].y = idx < NUM_VERTICES && inbound[idx] > NUM_VERTICES ? weights[idx] : UINT32_MAX;
 		shm[threadIdx.x + NUM_THREADS].y = UINT32_MAX;
 	}
-	
+
 	__syncthreads();
 
 	for (int j = NUM_THREADS * SHM_FACTOR; j > 1; j /= 2) {
@@ -89,22 +89,29 @@ __global__ void min_reduction2(uint2 *v_red, uint32_t *current_node, uint32_t *l
 			*current_node = v_red[0].x;
 		}
 	}
-
+	
+	/*if (idx == 0) {
+		printf("CURRENT NODE: %d , LAST NODE: %d\n", *current_node, *last_node);
+	}*/
 }
 
 __global__ void update_mst(uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t *current_node) {
 
 	uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
+	//print(inbound, outbound, weights, idx, NUM_VERTICES);
+
 	uint32_t start_index = outbound_vertices[*current_node].y;
 	uint32_t end_index = start_index + outbound_vertices[*current_node].x;
 
-	if (idx >= start_index && idx < end_index) {
-		if (inbound_vertices[idx].y < weights[inbound_vertices[idx].x]) {
-			weights[inbound_vertices[idx].x] = inbound_vertices[idx].y;
-			outbound[inbound_vertices[idx].x] = *current_node;
+	if (idx  < end_index - start_index) {
+		uint32_t edge_idx = idx + start_index;
+		if (inbound_vertices[edge_idx].y < weights[inbound_vertices[edge_idx].x]) {
+			weights[inbound_vertices[edge_idx].x] = inbound_vertices[edge_idx].y;
+			outbound[inbound_vertices[edge_idx].x] = *current_node;
 		}
 	}
+	//print(inbound, outbound, weights, idx, NUM_VERTICES);
 }
 
 __global__ void update_mst2(uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights, uint32_t *current_node, uint32_t *last_node) {
@@ -117,6 +124,8 @@ __global__ void update_mst2(uint2 *outbound_vertices, uint2 *inbound_vertices, u
 		weights[*last_node] = weights[*current_node];
 		weights[*current_node] = UINT32_MAX;
 	}
+
+	//print(inbound, outbound, weights, idx, NUM_VERTICES);
 }
 
 
@@ -186,16 +195,27 @@ void free_resources(uint2 *& inbound_vertices, uint2 *& outbound_vertices, uint2
 
 void print_result(uint32_t * outbound, uint32_t *inbound, uint32_t *weights, uint32_t V) {
 	cout << "H " << V << " " << V - 1 << " " << 1 << endl;
+	uint32_t counter = 0;
 	for (int i = 0; i < NUM_VERTICES; i++) {
 		if (inbound[i] < NUM_VERTICES) {
 			cout << "E " << outbound[i] << " " << inbound[i] << " " << weights[i] << endl;
+			counter++;
 		}
+	}
+	cout << "NUMBER LINES : " << counter << endl;
+}
+
+void print_raw(uint32_t * outbound, uint32_t *inbound, uint32_t *weights) {
+	cout << "H " << NUM_VERTICES << " " << NUM_VERTICES << " " << 1 << endl;
+	uint32_t counter = 0;
+	for (int i = 0; i < NUM_VERTICES; i++) {
+			cout << "E " << outbound[i] << " " << inbound[i] << " " << weights[i] << endl;
 	}
 }
 
 int main()
 {
-	MatrixGraph aGraph;
+	ListGraph g;
 
 	chrono::steady_clock::time_point begin, end;
 	double runtime;
@@ -205,15 +225,15 @@ int main()
 
 	uint32_t *d_outbound = NULL, *d_inbound = NULL, *d_weights = NULL;
 
-	generator(aGraph, NUM_VERTICES, MIN_WEIGHT, MAX_WEIGHT, DENSITY, false);
-	//cin >> aGraph;
+	generator(g, NUM_VERTICES, MIN_WEIGHT, MAX_WEIGHT, DENSITY, false, UINT64_MAX);
+	//cin >> g;
 
 	// write to stdout
-	//cout << aGraph << endl;
+	cout << g << endl;
 
 	for (int i = 0; i < NUM_RUNS; i++) {
 
-		cuda_setup(aGraph, inbound_vertices, outbound_vertices, shape);
+		cuda_setup(g, inbound_vertices, outbound_vertices, shape);
 
 		uint32_t outbound[NUM_VERTICES];
 		uint32_t inbound[NUM_VERTICES];
@@ -230,12 +250,10 @@ int main()
 		for (int i = 0; i < shape->x; i++) {
 			printf("%d %d\n", outbound_vertices[i].y, outbound_vertices[i].x);
 		}
-
 		cout << "inbound:" << endl;
 		for (int i = 0; i < shape->y * 2; i++) {
 			printf("%d %d\n", inbound_vertices[i].y, inbound_vertices[i].x);
 		}
-
 		cout << "shape:" << endl;
 		cout << "Number of Vertices: " << shape[0].x << endl << "Number of edges: " << shape[0].y << endl;
 		*/
@@ -257,10 +275,11 @@ int main()
 		cudaMemcpy(weights, d_weights, shape->x * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
 		print_result(outbound, inbound, weights, shape->x);
+		//print_raw(outbound, inbound, weights);
+
 		cout << runtime << " milliseconds." << endl;
 
 		free_resources(inbound_vertices, outbound_vertices, shape, d_inbound_vertices, d_outbound_vertices, d_shape, d_red_array, outbound, inbound, weights, d_outbound, d_inbound, d_weights, d_current_node, d_last_node);
 
 	}
 }
-
