@@ -265,11 +265,11 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
 
         // Invoke 2:
         // If we have more than one block, find minimum of all blocks
-        if (total_blocks > 1) {
-            mst_minweight <<<1, total_blocks>>> (
+        if (num_remaining_blocks > 1) {
+            mst_minweight <<<1, num_remaining_blocks>>> (
                     d_tmp_best, d_tmp_minweights,
                     d_tmp_best, d_tmp_minweights,
-                    total_blocks);
+                    num_remaining_blocks);
         }
 
         // If the best edge is not at the beginning, we must swap edges
