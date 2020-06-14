@@ -28,6 +28,7 @@ class Graph {
     + num_vertices()
     + num_edges()
     + is_directed()
+    + sum_weights()
 }
 
 Graph <|-- ListGraph
