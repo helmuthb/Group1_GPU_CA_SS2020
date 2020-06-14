@@ -16,7 +16,7 @@
 // Options
 //////////////////////////
 
-#define BLOCKSIZE 1024
+#define BLOCKSIZE 256
 
 
 //
@@ -109,7 +109,7 @@ __global__ void mst_update(uint2 *vertices, uint2 *edges,
     uint32_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
     uint32_t offset = vertices[*current_vertex].y;
-    uint32_t count = vertices[*current_vertex].x;
+    uint32_t count  = vertices[*current_vertex].x;
 
     // We only need as many threads as new node has edges
     if (idx < count) {
@@ -165,9 +165,12 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
         for (uint32_t s = 1; s < blockDim.x; s *= 2) {
             uint32_t left = 2 * s * threadIdx.x;
 
-            if (left < blockDim.x) { uint32_t right = left + s;
-                // Only compare if the counterpart is still within bounds
-                if (right + (blockDim.x * blockIdx.x) < num_remaining) {
+            if (left < blockDim.x) {
+                uint32_t right = left + s;
+                // Conditions:
+        //  1. Don't test outside of the block (eg uneven block size)
+        //  2. Input size might not be power of two, so cut off  appropriately
+                if (right < blockDim.x && right + (blockDim.x * blockIdx.x) < num_remaining) {
                     // If the best weight is not already at position ti, move it there
                     if (shm_minweights[right] < shm_minweights[left]) {
                         shm_best[left] = shm_best[right];
@@ -193,7 +196,6 @@ __global__ void mst_minweight(uint32_t *indices, uint32_t *weights,
 // This uses:
 //   * Compact Adjacency List as proposed by Wang et al., based on Harish et al.
 //   * MST data structure as proposed by Wang et al.
-//     -> we extend this 3-part data structure with a 4-th part.
 //
 void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
                        uint2 *edges, uint32_t num_edges,
@@ -205,6 +207,14 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
         inbound[i] = i + 1;
         weights[i] = Graph::WEIGHT_INFTY;
     }
+
+    uint32_t max_edges = 0;
+    for (uint32_t i = 0; i < num_vertices; ++i) {
+	    if (vertices[i].x > max_edges) {
+		    max_edges = vertices[i].x;
+	    }
+    }
+    printf("max_edges=%u\n", max_edges);
 
     // Data structures in device memory
     uint2 *d_vertices, *d_edges;
@@ -262,11 +272,11 @@ void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
 
         // Invoke 2:
         // If we have more than one block, find minimum of all blocks
-        if (num_remaining_blocks > 1) {
-            mst_minweight <<<1, num_remaining_blocks>>> (
+        if (total_blocks > 1) {
+            mst_minweight <<<1, total_blocks>>> (
                     d_tmp_best, d_tmp_minweights,
                     d_tmp_best, d_tmp_minweights,
-                    num_remaining_blocks);
+                    total_blocks);
         }
 
         // If the best edge is not at the beginning, we must swap edges
