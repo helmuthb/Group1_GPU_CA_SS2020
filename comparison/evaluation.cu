@@ -19,36 +19,36 @@ double cudaRuntime(const Graph& g, int cntRuns) {
     steady_clock::time_point begin, end;
     double runtime;
 
-    // prepare data for thrust
-    uint2 * inbound_vertices, *outbound_vertices, *shape = NULL;
-    cudaSetup(g, inbound_vertices, outbound_vertices, shape);
-    const uint32_t V = shape->x;
+    // prepare data for CUDA
+    uint2 * vertex_adjacent_count_index, *edge_target_weight;
+    cudaSetup(g, vertex_adjacent_count_index, edge_target_weight);
 
-    uint32_t *outbound = new uint32_t[V];
-    uint32_t *inbound = new uint32_t[V];
-    uint32_t *weights = new uint32_t[V];
+    uint32_t V = g.num_vertices();
+    uint32_t E = g.num_edges();
+    uint32_t *mst_out = new uint32_t[V];
+    uint32_t *mst_in = new uint32_t[V];
+    uint32_t *mst_weight = new uint32_t[V];
 
     // allow for warm-up
-    cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
-        inbound, outbound, weights);
+    cudaPrimAlgorithm(vertex_adjacent_count_index, edge_target_weight,
+        mst_out, mst_in, mst_weight, V, E);
 
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        cudaPrimAlgorithm(inbound_vertices, outbound_vertices, shape,
-            inbound, outbound, weights);
-        }
+        cudaPrimAlgorithm(vertex_adjacent_count_index, edge_target_weight,
+            mst_out, mst_in, mst_weight, V, E);
+    }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
 
-    delete[] inbound_vertices;
-    delete[] outbound_vertices;
-    delete[] shape;
+    delete[] vertex_adjacent_count_index;
+    delete[] edge_target_weight;
 
-    delete[] inbound;
-    delete[] outbound;
-    delete[] weights;
+    delete[] mst_in;
+    delete[] mst_out;
+    delete[] mst_weight;
 
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    
@@ -178,6 +178,8 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         // output to file 
         os << "cpu_b," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
 #endif
+*/
+/*
         // run through thrust implementation
         runtime = thrustRuntime(g, cntRuns);
         // output to file 
