@@ -20,11 +20,11 @@ using namespace std;
 /**
  * Prepare for cuda-multi version of Prim's algorith
  */
-void cuda_multi_setup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices);
+void cuda1Setup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices);
 
 /**
  * Prim's algorithm
  */
-void cuda_multi_prim_algorithm(uint32_t num_vertices, uint32_t num_edges, uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights);
+void cuda1PrimAlgorithm(uint32_t num_vertices, uint32_t num_edges, uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights);
 
 #endif

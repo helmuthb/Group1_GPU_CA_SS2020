@@ -3,6 +3,7 @@
 #include "sparse_graph.hpp"
 #include "list_graph.hpp"
 #include "thrust_prim.hpp"
+#include "cuda1_prim.hpp"
 #include "cuda_prim.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
@@ -60,7 +61,7 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     return 1000.*runtime/cntRuns;    
 }
 
-double cuda_multi_runtime(const Graph& g, int cntRuns, Graph& mst) {
+double cuda1Runtime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
@@ -77,7 +78,7 @@ double cuda_multi_runtime(const Graph& g, int cntRuns, Graph& mst) {
     uint32_t *weights = new uint32_t[V];
 
     // Prepare input data
-    cuda_multi_setup(g, inbound_vertices, outbound_vertices);
+    cuda1Setup(g, inbound_vertices, outbound_vertices);
 
     // initialize solution arrays with +inf
     std::fill(outbound, outbound + V, UINT32_MAX);
@@ -85,7 +86,7 @@ double cuda_multi_runtime(const Graph& g, int cntRuns, Graph& mst) {
     std::fill(weights, weights + V, UINT32_MAX);
 
     // allow for warm-up
-    cuda_multi_prim_algorithm(V, E, outbound_vertices, inbound_vertices, outbound, inbound, weights);
+    cuda1PrimAlgorithm(V, E, outbound_vertices, inbound_vertices, outbound, inbound, weights);
 
     // now the real test run
     begin = steady_clock::now();
@@ -95,7 +96,7 @@ double cuda_multi_runtime(const Graph& g, int cntRuns, Graph& mst) {
         std::fill(inbound, inbound + V, UINT32_MAX);
         std::fill(weights, weights + V, UINT32_MAX);
         // find MST solution
-        cuda_multi_prim_algorithm(V, E, outbound_vertices, inbound_vertices, outbound, inbound, weights);
+        cuda1PrimAlgorithm(V, E, outbound_vertices, inbound_vertices, outbound, inbound, weights);
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end - begin)).count();
@@ -260,9 +261,9 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 
         // run through cuda multi implementation
         ListGraph cuda_multi_mst;
-        runtime = cuda_multi_runtime(g, cntRuns, cuda_multi_mst);
+        runtime = cuda1Runtime(g, cntRuns, cuda_multi_mst);
         // output to file 
-        os << "cuda-multi," << i
+        os << "cuda1," << i
             << "," << itseed
             << "," << num_vertices
             << "," << density

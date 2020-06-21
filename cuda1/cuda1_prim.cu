@@ -5,7 +5,7 @@
 // Please refer to the report for documentation on all the data structures used
 // here, as well as an outline of the implementation.
 
-#include "cuda_multi_prim.hpp"
+#include "cuda1_prim.hpp"
 
 //
 // Kernel implementing the first phase of min reduction primitive
@@ -139,7 +139,7 @@ __global__ void update_mst2(uint32_t *outbound, uint32_t *inbound, uint32_t *wei
 // The input graph is generated using our own graph generator, which can be
 // found in base/.
 //
-void cuda_multi_setup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices) {
+void cuda1Setup(const Graph& g, uint2 *&inbound_vertices, uint2 *&outbound_vertices) {
 	uint32_t pos = 0;
 	for (uint32_t v = 0; v < g.num_vertices(); ++v) {
 		std::vector<EdgeTarget> neighbors;
@@ -214,7 +214,7 @@ uint32_t get_num_blocks(uint32_t num_vertices, uint32_t num_threads) {
 	return num_blocks;
 }
 
-void cuda_multi_prim_algorithm(uint32_t num_vertices, uint32_t num_edges, uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
+void cuda1PrimAlgorithm(uint32_t num_vertices, uint32_t num_edges, uint2 *outbound_vertices, uint2 *inbound_vertices, uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
 	{
 		// declaration of device pointers
 		uint2 * d_inbound_vertices = NULL, *d_outbound_vertices = NULL;
