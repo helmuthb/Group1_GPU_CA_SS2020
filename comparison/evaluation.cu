@@ -4,7 +4,7 @@
 #include "list_graph.hpp"
 #include "thrust_prim.hpp"
 #include "cuda1_prim.hpp"
-#include "cuda_prim.hpp"
+#include "cuda2_prim.hpp"
 #include "generator.hpp"
 #include "cpu_prim.hpp"
 #include <chrono>
@@ -15,7 +15,7 @@
 
 using namespace std::chrono;
 
-double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
+double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
 
@@ -32,16 +32,16 @@ double cudaRuntime(const Graph& g, int cntRuns, Graph& mst) {
     uint32_t *weights = new uint32_t[V-1];
 
     // Prepare input data
-    cudaSetup(g, vertices, edges);
+    cuda2Setup(g, vertices, edges);
 
     // allow for warm-up
-    cudaPrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
+    cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
 
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        cudaPrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
+        cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
@@ -248,9 +248,9 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 */
         // run through cuda implementation
         ListGraph cuda_mst;
-        runtime = cudaRuntime(g, cntRuns, cuda_mst);
+        runtime = cuda2Runtime(g, cntRuns, cuda_mst);
         // output to file 
-        os << "cuda," << i
+        os << "cuda2," << i
                 << "," << itseed
                 << "," << num_vertices
                 << "," << density

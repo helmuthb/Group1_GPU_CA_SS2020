@@ -9,7 +9,7 @@
 
 #include <cmath>
 
-#include "cuda_prim.hpp"
+#include "cuda2_prim.hpp"
 
 
 //////////////////////////
@@ -28,7 +28,7 @@
 // The input graph is generated using our own graph generator, which can be
 // found in base/.
 //
-void cudaSetup(const Graph& g, uint2 *vertices, uint2 *edges)
+void cuda2Setup(const Graph& g, uint2 *vertices, uint2 *edges)
 {
     uint32_t num_vertices = g.num_vertices();
 
@@ -220,9 +220,9 @@ __global__ void mst_swap_and_next(uint32_t *outbound, uint32_t *inbound, uint32_
 //     vertex-to-index map, which keeps track of a location of a vertex after
 //     it has been moved.
 //
-void cudaPrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
-                       uint2 *edges, uint32_t num_edges,
-                       uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
+void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
+                        uint2 *edges, uint32_t num_edges,
+                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
 
     // Initialize the MST data structure
     for (uint32_t i = 0; i < num_vertices - 1; ++i) {

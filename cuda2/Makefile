@@ -4,10 +4,10 @@ CXXFLAGS = -Wall -I$(BASE) -DWITH_BOOST
 NVCC = nvcc
 CUDAFLAGS = -O3 -I$(BASE) -DWITH_BOOST
 
-all : cuda_prim.o
+all : cuda2_prim.o
 
 %.o : %.cu
 	$(NVCC) $(CUDAFLAGS) -c $< -o $@
 
 clean :
-	rm -f *.o cuda_prim
+	rm -f *.o
