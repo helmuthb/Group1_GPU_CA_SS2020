@@ -21,10 +21,13 @@ double cudaRuntime(const Graph& g, int cntRuns) {
 
     // prepare data for CUDA
     uint2 * vertex_adjacent_count_index, *edge_target_weight;
-    cudaSetup(g, vertex_adjacent_count_index, edge_target_weight);
-
     uint32_t V = g.num_vertices();
     uint32_t E = g.num_edges();
+
+    vertex_adjacent_count_index = new uint2[V];
+    edge_target_weight = new uint2[2*E];
+    cudaSetup(g, vertex_adjacent_count_index, edge_target_weight);
+
     uint32_t *mst_out = new uint32_t[V];
     uint32_t *mst_in = new uint32_t[V];
     uint32_t *mst_weight = new uint32_t[V];
@@ -58,20 +61,24 @@ double thrustRuntime(const Graph& g, int cntRuns) {
     steady_clock::time_point begin, end;
     double runtime;
 
+    uint32_t V = g.num_vertices();
+    uint32_t E = g.num_edges();
     // prepare data for thrust
-    thrust::host_vector<uint32_t> num_edges;
-    thrust::host_vector<uint32_t> idx_edges;
-    thrust::host_vector<uint32_t> target;
-    thrust::host_vector<int32_t> weight;
-    thrustPrepare(g, &num_edges, &idx_edges, &target, &weight);
-    thrust::host_vector<uint32_t> predecessor;
+    thrust::host_vector<uint2> vertex_adjacent_count_index(V);
+    thrust::host_vector<uint2> edge_target_weight(2*E);
+    thrustSetup(g, vertex_adjacent_count_index, edge_target_weight);
+    thrust::host_vector<uint32_t> mst_out(V);
+    thrust::host_vector<uint32_t> mst_in(V);
+    thrust::host_vector<uint32_t> mst_weight(V);
     // allow for warm-up
-    thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+    thrustPrimAlgorithm(vertex_adjacent_count_index, edge_target_weight,
+        mst_out, mst_in, mst_weight, V, E);
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+        thrustPrimAlgorithm(vertex_adjacent_count_index, edge_target_weight,
+            mst_out, mst_in, mst_weight, V, E);
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
@@ -168,9 +175,11 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         runtime = cpuRuntime<ListGraph>(g, cntRuns);
         // output to file 
         os << "cpu_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+/*
         runtime = cpuRuntime2<ListGraph>(g, cntRuns);
         // output to file 
         os << "cpu2_l," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
+*/
 /*
 #ifdef WITH_BOOST
         // run through boost implementation
@@ -179,12 +188,12 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         os << "cpu_b," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
 #endif
 */
-/*
+/* */
         // run through thrust implementation
         runtime = thrustRuntime(g, cntRuns);
         // output to file 
         os << "thrust," << i << "," << num_vertices << "," << density << "," << weight_range << "," << runtime << std::endl;
-*/
+/* */
         // run through cuda implementation
         runtime = cudaRuntime(g, cntRuns);
         // output to file 
@@ -193,8 +202,8 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 }
 
 int main(int argc, char* argv[]) {
-    runParamSet(std::cout, 10000, 50, 0.01, 3, 1);
-    runParamSet(std::cout, 50000, 50, 0.001, 3, 1);
+    runParamSet(std::cout, 1000, 50, 0.01, 3, 1);
+    runParamSet(std::cout, 5000, 50, 0.001, 3, 1);
     /*
     runParamSet(std::cout, 1000, 50, 0.1, 10, 10);
     runParamSet(std::cout, 1000, 50, 0.2, 10, 10);
