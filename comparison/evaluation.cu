@@ -171,22 +171,24 @@ double thrustRuntime(const Graph& g, int cntRuns, Graph& mst) {
     thrust::host_vector<uint2> vertices(V);
     thrust::host_vector<uint2> edges(2*E);
     thrustSetup(g, vertices, edges);
-    thrust::host_vector<uint32_t> mst_in(V);
-    thrust::host_vector<uint32_t> mst_out(V);
-    thrust::host_vector<uint32_t> mst_weight(V);
+    thrust::host_vector<uint32_t> outbound(V);
+    thrust::host_vector<uint32_t> inbound(V);
+    thrust::host_vector<uint32_t> weights(V);
     // allow for warm-up
-    thrustPrimAlgorithm(vertices, edges, mst_out, mst_in, mst_weight, V, E);
+    thrustPrimAlgorithm(vertices, edges, outbound, inbound, weights, V, E);
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        thrustPrimAlgorithm(vertices, edges, mst_out, mst_in, mst_weight, V, E);
+        thrustPrimAlgorithm(vertices, edges, outbound, inbound, weights, V, E);
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
-    // TODO: Store the results in mst
-    // mst.resize(g.num_vertices(), g.num_vertices()-1, g.is_directed());
-    // ...
+    // Store the results in mst
+    mst.resize(V, V-1, g.is_directed());
+    for (uint32_t i = 0; i < V-1; ++i) {
+        mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
+    }
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    
 }

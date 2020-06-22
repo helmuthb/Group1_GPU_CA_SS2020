@@ -72,7 +72,7 @@ __global__ void updateStep2(uint32_t *mst_out, uint32_t *mst_in, uint32_t *mst_w
     if (idx < current_count_index.x) {
         uint2 cur_target_weight = edge_target_weight[current_count_index.y+idx];
         uint32_t in_idx = mst_in_reverse[cur_target_weight.x];
-        if (cur_target_weight.y < mst_weight[in_idx] && cur_target_weight.x >= mst_border) {
+        if (cur_target_weight.y < mst_weight[in_idx] && in_idx >= mst_border) {
             // update mst_out and mst_weight
             mst_out[in_idx] = current_node;
             mst_weight[in_idx] = cur_target_weight.y;

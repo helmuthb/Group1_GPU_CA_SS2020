@@ -4,6 +4,13 @@
 #include "list_graph.hpp"
 #include "generator.hpp"
 #include <set>
+#ifdef WITH_BOOST
+#include <boost/graph/prim_minimum_spanning_tree.hpp>
+#endif
+
+#ifdef WITH_BOOST
+struct do_nothing_dijkstra_visitor : boost::default_dijkstra_visitor {};
+#endif
 
 TEST_CASE("Thrust prim for tiny graph") {
     ListGraph g(6, false);
@@ -35,7 +42,6 @@ TEST_CASE("Thrust prim for tiny graph") {
     for (int i=0; i<V-1; ++i) {
         int f = mst_out[i];
         int t = mst_in[i];
-        std::cout << f << "->" << t << " (" << mst_weight[i] << ")" << std::endl;
         CHECK(mst_weight[i] == g(f, t));
     }
     // check reachability of each node
@@ -52,9 +58,9 @@ TEST_CASE("Thrust prim for tiny graph") {
 
 TEST_CASE("Thrust prim for micro graph") {
     ListGraph g(3, false);
-    g.set(0,1,1);
+    g.set(0,1,2);
     g.set(0,2,2);
-    g.set(1,2,3);
+    g.set(1,2,1);
     uint32_t V = g.num_vertices();
     uint32_t E = g.num_edges();
     thrust::host_vector<uint2> vertex_adjacent_count_index(V);
@@ -90,7 +96,8 @@ TEST_CASE("Thrust prim for micro graph") {
 
 TEST_CASE("Thrust prim for large graph") {
     ListGraph g(1000, false);
-    generator(g, 1000, 2, 10, 0.5, false);
+    // generator(g, 1000, 2, 10, 0.5, false);
+    generator(g, 10, 2, 10, 0.5, false);
     int max_weight = 10 * 999;
     uint32_t V = g.num_vertices();
     uint32_t E = g.num_edges();
@@ -102,11 +109,11 @@ TEST_CASE("Thrust prim for large graph") {
     thrustSetup(g, vertex_adjacent_count_index, edge_target_weight);
     thrustPrimAlgorithm(vertex_adjacent_count_index, edge_target_weight, mst_out, mst_in, mst_weight, V, E);
     // sum up weights
-    int w = 0;
+    int total_weight = 0;
     for (int i=0; i<V-1; ++i) {
-        w += mst_weight[i];
+        total_weight += mst_weight[i];
     }
-    CHECK(w <= max_weight);
+    CHECK(total_weight <= max_weight);
     // check correct weight from original graph
     int wrong_weights = 0;
     for (int i=0; i<V-1; ++i) {
@@ -127,4 +134,17 @@ TEST_CASE("Thrust prim for large graph") {
     }
     CHECK(nodes_missing == 0);
     CHECK(mst_nodes.size() == V);
+#ifdef WITH_BOOST
+    BoostGraph boost_g;
+    g.toBoost(boost_g);
+    auto p = std::vector<boost::graph_traits<BoostGraph>::vertex_descriptor >(g.num_vertices());
+    boost::prim_minimum_spanning_tree(boost_g, &p[0]);
+    uint32_t sum_weights = 0;
+    for (std::size_t i = 0; i != p.size(); ++i) {
+        if (p[i] != i) {
+            sum_weights += g(i, p[i]);
+        }
+    }
+    CHECK(total_weight == sum_weights);
+#endif
 }
