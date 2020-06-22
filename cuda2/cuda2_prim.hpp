@@ -16,6 +16,7 @@ void cuda2Setup(const Graph& g, uint2 *vertices, uint2 *edges);
  */
 void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
                         uint2 *edges, uint32_t num_edges,
-                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights);
+                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
+			bool zerocopy=false);
 
 #endif
