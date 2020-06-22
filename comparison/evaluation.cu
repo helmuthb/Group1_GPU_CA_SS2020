@@ -72,7 +72,7 @@ double cuda1Runtime(const Graph& g, int cntRuns, Graph& mst) {
     return 1000.*runtime / cntRuns;
 }
 
-double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
+double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst, bool pinned=false) {
     steady_clock::time_point begin, end;
     double runtime;
 
@@ -81,12 +81,23 @@ double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
     const uint32_t E = 2*g.num_edges();
 
     // Inputs
-    uint2 *vertices = new uint2[V];
-    uint2 *edges = new uint2[E];
+    uint2 *vertices, *edges;
     // Outputs
-    uint32_t *outbound = new uint32_t[V-1];
-    uint32_t *inbound = new uint32_t[V-1];
-    uint32_t *weights = new uint32_t[V-1];
+    uint32_t *outbound, *inbound, *weights;
+
+    if (!pinned) {
+        vertices = new uint2[V];
+        edges = new uint2[E];
+        outbound = new uint32_t[V-1];
+        inbound = new uint32_t[V-1];
+        weights = new uint32_t[V-1];
+    } else {
+        cudaMallocHost((uint2 **)    &vertices, V     * sizeof(uint2));
+        cudaMallocHost((uint2 **)    &edges,    E     * sizeof(uint2));
+        cudaMallocHost((uint32_t **) &outbound, (V-1) * sizeof(uint32_t));
+        cudaMallocHost((uint32_t **) &inbound,  (V-1) * sizeof(uint32_t));
+        cudaMallocHost((uint32_t **) &weights,  (V-1) * sizeof(uint32_t));
+    }
 
     // Prepare input data
     cuda2Setup(g, vertices, edges);
@@ -108,11 +119,19 @@ double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
         mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
     }
 
-    delete[] vertices;
-    delete[] edges;
-    delete[] outbound;
-    delete[] inbound;
-    delete[] weights;
+    if (!pinned) {
+        delete[] vertices;
+        delete[] edges;
+        delete[] outbound;
+        delete[] inbound;
+        delete[] weights;
+    } else {
+        cudaFreeHost(vertices);
+        cudaFreeHost(edges);
+        cudaFreeHost(outbound);
+        cudaFreeHost(inbound);
+        cudaFreeHost(weights);
+    }
 
     // return as miliseconds per round
     return 1000.*runtime/cntRuns;    
@@ -251,7 +270,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << std::endl;
 /* */
 
-        // run through cuda multi implementation
+        // run through CUDA implementation #1
         ListGraph cuda1_mst;
         runtime = cuda1Runtime(g, cntRuns, cuda1_mst);
         // output to file 
@@ -264,10 +283,10 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
             << "," << cuda1_mst.sum_weights()
             << std::endl;
 
-        // run through cuda implementation
+        // run through CUDA implementation #2 - regular
         ListGraph cuda2_mst;
-        runtime = cuda2Runtime(g, cntRuns, cuda2_mst);
-        // output to file 
+        runtime = cuda2Runtime(g, cntRuns, cuda2_mst, false);
+        // output to file
         os << "cuda2," << i
                 << "," << itseed
                 << "," << num_vertices
@@ -275,6 +294,19 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << weight_range
                 << "," << runtime
                 << "," << cuda2_mst.sum_weights()
+                << std::endl;
+
+        // run through CUDA implementation #2 - pinned memory
+        ListGraph cuda2_mst_pinned;
+        runtime = cuda2Runtime(g, cntRuns, cuda2_mst_pinned, true);
+        // output to file
+        os << "cuda2-pinned," << i
+                << "," << itseed
+                << "," << num_vertices
+                << "," << density
+                << "," << weight_range
+                << "," << runtime
+                << "," << cuda2_mst_pinned.sum_weights()
                 << std::endl;
     }
 }
