@@ -222,8 +222,9 @@ __global__ void mst_swap_and_next(uint32_t *outbound, uint32_t *inbound, uint32_
 //
 void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
                         uint2 *edges, uint32_t num_edges,
-                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights) {
-
+                        uint32_t *outbound, uint32_t *inbound, uint32_t *weights,
+			bool zerocopy)
+{
     // Initialize the MST data structure
     for (uint32_t i = 0; i < num_vertices - 1; ++i) {
         outbound[i] = 0;
@@ -236,6 +237,8 @@ void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     uint32_t *d_outbound, *d_inbound, *d_weights;
     // Temporary helpers and results storage
     uint32_t *d_v2i_map, *d_tmp_minindices, *d_tmp_minweights, *d_current_vertex;
+    // Only for zerocopy
+    uint32_t *h_v2i_map, *h_tmp_minindices, *h_tmp_minweights, *h_current_vertex;
 
     // Sanity checks
     if (BLOCKSIZE == 1) {
@@ -249,31 +252,68 @@ void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
         throw new std::out_of_range("Cannot reduce more than BLOCKSIZE blocks");
     }
 
-    // Allocate memory for the data structures in device memory
-    cudaMalloc(&d_vertices,       num_vertices     * sizeof(uint2));
-    cudaMalloc(&d_edges,          num_edges        * sizeof(uint2));
-    cudaMalloc(&d_outbound,       (num_vertices-1) * sizeof(uint32_t));
-    cudaMalloc(&d_inbound,        (num_vertices-1) * sizeof(uint32_t));
-    cudaMalloc(&d_weights,        (num_vertices-1) * sizeof(uint32_t));
-    cudaMalloc(&d_v2i_map,        num_vertices     * sizeof(uint32_t));
-    cudaMalloc(&d_tmp_minindices, blocks_total     * sizeof(uint32_t));
-    cudaMalloc(&d_tmp_minweights, blocks_total     * sizeof(uint32_t));
-    cudaMalloc(&d_current_vertex, 1                * sizeof(uint32_t));
+    //
+    // Allocate memory
+    //
+    // zerocopy == false: Allocate on device
+    // zerocopy == true: Allocate on host, map to device
+    if (!zerocopy) {
 
-    // Transfer inputs to device memory
-    cudaMemcpy(d_vertices,  vertices,  num_vertices     * sizeof(uint2),    cudaMemcpyHostToDevice);
-    cudaMemcpy(d_edges,     edges,     num_edges        * sizeof(uint2),    cudaMemcpyHostToDevice);
-    cudaMemcpy(d_outbound,  outbound,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_inbound,   inbound,   (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_weights,   weights,   (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMemset(d_tmp_minindices, 0,    blocks_total     * sizeof(uint32_t));
-    cudaMemset(d_tmp_minweights, 0,    blocks_total     * sizeof(uint32_t));
-    cudaMemset(d_current_vertex, 0,    1                * sizeof(uint32_t));
+        // Allocate memory for the data structures in device memory
+        cudaMalloc(&d_vertices,       num_vertices     * sizeof(uint2));
+        cudaMalloc(&d_edges,          num_edges        * sizeof(uint2));
+        cudaMalloc(&d_outbound,       (num_vertices-1) * sizeof(uint32_t));
+        cudaMalloc(&d_inbound,        (num_vertices-1) * sizeof(uint32_t));
+        cudaMalloc(&d_weights,        (num_vertices-1) * sizeof(uint32_t));
+        cudaMalloc(&d_v2i_map,        num_vertices     * sizeof(uint32_t));
+        cudaMalloc(&d_tmp_minindices, blocks_total     * sizeof(uint32_t));
+        cudaMalloc(&d_tmp_minweights, blocks_total     * sizeof(uint32_t));
+        cudaMalloc(&d_current_vertex, 1                * sizeof(uint32_t));
 
-    // We set the first two positions to 0, and fill the rest of the positions
-    // with the sequence in inbound (1 .. |V|-1).
-    cudaMemset(d_v2i_map,        0,    2                * sizeof(uint32_t));
-    cudaMemcpy(d_v2i_map+2, inbound,   (num_vertices-2) * sizeof(uint32_t), cudaMemcpyHostToDevice);
+        // Initialize inputs / transfer inputs to device memory
+        cudaMemcpy(d_vertices,  vertices,  num_vertices     * sizeof(uint2),    cudaMemcpyHostToDevice);
+        cudaMemcpy(d_edges,     edges,     num_edges        * sizeof(uint2),    cudaMemcpyHostToDevice);
+        cudaMemcpy(d_outbound,  outbound,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_inbound,   inbound,   (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_weights,   weights,   (num_vertices-1) * sizeof(uint32_t), cudaMemcpyHostToDevice);
+        cudaMemset(d_tmp_minindices, 0,    blocks_total     * sizeof(uint32_t));
+        cudaMemset(d_tmp_minweights, 0,    blocks_total     * sizeof(uint32_t));
+        cudaMemset(d_current_vertex, 0,    1                * sizeof(uint32_t));
+        // We set the first two positions to 0, and fill the rest of the positions
+        // with the sequence in inbound (1 .. |V|-1).
+        cudaMemset(d_v2i_map,        0,    2                * sizeof(uint32_t));
+        cudaMemcpy(d_v2i_map+2, inbound,   (num_vertices-2) * sizeof(uint32_t), cudaMemcpyHostToDevice);
+
+    } else {
+        // ZEROCOPY
+
+        // This memory has already been allocated on the host; it has just been
+        // passed on to us. Get device memory pointers for this memory
+        cudaHostGetDevicePointer((void **) &d_vertices, (void *) vertices, 0);
+        cudaHostGetDevicePointer((void **) &d_edges,    (void *) edges,    0);
+        cudaHostGetDevicePointer((void **) &d_outbound, (void *) outbound, 0);
+        cudaHostGetDevicePointer((void **) &d_inbound,  (void *) inbound,  0);
+        cudaHostGetDevicePointer((void **) &d_weights,  (void *) weights,  0);
+
+        // This is new memory we need. Allocate it, get device pointers
+        cudaHostAlloc((uint32_t **) &h_v2i_map,        num_vertices     * sizeof(uint32_t), cudaHostAllocMapped);
+        cudaHostAlloc((uint32_t **) &h_tmp_minindices, blocks_total     * sizeof(uint32_t), cudaHostAllocMapped);
+        cudaHostAlloc((uint32_t **) &h_tmp_minweights, blocks_total     * sizeof(uint32_t), cudaHostAllocMapped);
+        cudaHostAlloc((uint32_t **) &h_current_vertex, 1                * sizeof(uint32_t), cudaHostAllocMapped);
+        cudaHostGetDevicePointer((void **) &d_v2i_map,        (void *) h_v2i_map,        0);
+        cudaHostGetDevicePointer((void **) &d_tmp_minindices, (void *) h_tmp_minindices, 0);
+        cudaHostGetDevicePointer((void **) &d_tmp_minweights, (void *) h_tmp_minweights, 0);
+        cudaHostGetDevicePointer((void **) &d_current_vertex, (void *) h_current_vertex, 0);
+
+        // Initialize inputs
+        memset(h_tmp_minindices, 0,    blocks_total     * sizeof(uint32_t));
+        memset(h_tmp_minweights, 0,    blocks_total     * sizeof(uint32_t));
+        memset(h_current_vertex, 0,    1                * sizeof(uint32_t));
+        // We set the first two positions to 0, and fill the rest of the positions
+        // with the sequence in inbound (1 .. |V|-1).
+        memset(h_v2i_map,        0,    2                * sizeof(uint32_t));
+        memcpy(h_v2i_map+2, inbound,   (num_vertices-2) * sizeof(uint32_t));
+    }
 
     //
     // Outer loop:
@@ -318,13 +358,21 @@ void cuda2PrimAlgorithm(uint2 *vertices, uint32_t num_vertices,
     cudaMemcpy(weights , d_weights,  (num_vertices-1) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
     // Free device memory
-    cudaFree(d_vertices);
-    cudaFree(d_edges);
-    cudaFree(d_inbound);
-    cudaFree(d_outbound);
-    cudaFree(d_weights);
-    cudaFree(d_v2i_map);
-    cudaFree(d_tmp_minindices);
-    cudaFree(d_tmp_minweights);
-    cudaFree(d_current_vertex);
+    if (!zerocopy) {
+        cudaFree(d_vertices);
+        cudaFree(d_edges);
+        cudaFree(d_inbound);
+        cudaFree(d_outbound);
+        cudaFree(d_weights);
+        cudaFree(d_v2i_map);
+        cudaFree(d_tmp_minindices);
+        cudaFree(d_tmp_minweights);
+        cudaFree(d_current_vertex);
+    }  else {
+        cudaFreeHost(h_v2i_map);
+        cudaFreeHost(h_tmp_minindices);
+        cudaFreeHost(h_tmp_minweights);
+        cudaFreeHost(h_current_vertex);
+        // Our caller has allocated the other memories, and will free them
+    }
 }
