@@ -15,52 +15,6 @@
 
 using namespace std::chrono;
 
-double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
-    steady_clock::time_point begin, end;
-    double runtime;
-
-    const uint32_t V = g.num_vertices();
-    // Each edge is present twice: once from each vertex
-    const uint32_t E = 2*g.num_edges();
-
-    // Inputs
-    uint2 *vertices = new uint2[V];
-    uint2 *edges = new uint2[E];
-    // Outputs
-    uint32_t *outbound = new uint32_t[V-1];
-    uint32_t *inbound = new uint32_t[V-1];
-    uint32_t *weights = new uint32_t[V-1];
-
-    // Prepare input data
-    cuda2Setup(g, vertices, edges);
-
-    // allow for warm-up
-    cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
-
-    // now the real test run
-    begin = steady_clock::now();
-    for (int i=0; i<cntRuns; ++i) {
-        // find MST solution
-        cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
-    }
-    end = steady_clock::now();
-    runtime = (duration_cast<duration<double>>(end-begin)).count();
-
-    mst.resize(V, V-1, g.is_directed());
-    for (uint32_t i = 0; i < V-1; ++i) {
-        mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
-    }
-
-    delete[] vertices;
-    delete[] edges;
-    delete[] outbound;
-    delete[] inbound;
-    delete[] weights;
-
-    // return as miliseconds per round
-    return 1000.*runtime/cntRuns;    
-}
-
 double cuda1Runtime(const Graph& g, int cntRuns, Graph& mst) {
     steady_clock::time_point begin, end;
     double runtime;
@@ -116,6 +70,52 @@ double cuda1Runtime(const Graph& g, int cntRuns, Graph& mst) {
 
     // return as miliseconds per round
     return 1000.*runtime / cntRuns;
+}
+
+double cuda2Runtime(const Graph& g, int cntRuns, Graph& mst) {
+    steady_clock::time_point begin, end;
+    double runtime;
+
+    const uint32_t V = g.num_vertices();
+    // Each edge is present twice: once from each vertex
+    const uint32_t E = 2*g.num_edges();
+
+    // Inputs
+    uint2 *vertices = new uint2[V];
+    uint2 *edges = new uint2[E];
+    // Outputs
+    uint32_t *outbound = new uint32_t[V-1];
+    uint32_t *inbound = new uint32_t[V-1];
+    uint32_t *weights = new uint32_t[V-1];
+
+    // Prepare input data
+    cuda2Setup(g, vertices, edges);
+
+    // allow for warm-up
+    cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
+
+    // now the real test run
+    begin = steady_clock::now();
+    for (int i=0; i<cntRuns; ++i) {
+        // find MST solution
+        cuda2PrimAlgorithm(vertices, V, edges, E, outbound, inbound, weights);
+    }
+    end = steady_clock::now();
+    runtime = (duration_cast<duration<double>>(end-begin)).count();
+
+    mst.resize(V, V-1, g.is_directed());
+    for (uint32_t i = 0; i < V-1; ++i) {
+        mst.set(outbound[i], inbound[i], (uint32_t) weights[i]);
+    }
+
+    delete[] vertices;
+    delete[] edges;
+    delete[] outbound;
+    delete[] inbound;
+    delete[] weights;
+
+    // return as miliseconds per round
+    return 1000.*runtime/cntRuns;    
 }
 
 double thrustRuntime(const Graph& g, int cntRuns, Graph& mst) {
@@ -250,22 +250,10 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << thrust_mst.sum_weights()
                 << std::endl;
 /* */
-        // run through cuda implementation
-        ListGraph cuda_mst;
-        runtime = cuda2Runtime(g, cntRuns, cuda_mst);
-        // output to file 
-        os << "cuda2," << i
-                << "," << itseed
-                << "," << num_vertices
-                << "," << density
-                << "," << weight_range
-                << "," << runtime
-                << "," << cuda_mst.sum_weights()
-                << std::endl;
 
         // run through cuda multi implementation
-        ListGraph cuda_multi_mst;
-        runtime = cuda1Runtime(g, cntRuns, cuda_multi_mst);
+        ListGraph cuda1_mst;
+        runtime = cuda1Runtime(g, cntRuns, cuda1_mst);
         // output to file 
         os << "cuda1," << i
             << "," << itseed
@@ -273,8 +261,21 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
             << "," << density
             << "," << weight_range
             << "," << runtime
-            << "," << cuda_multi_mst.sum_weights()
+            << "," << cuda1_mst.sum_weights()
             << std::endl;
+
+        // run through cuda implementation
+        ListGraph cuda2_mst;
+        runtime = cuda2Runtime(g, cntRuns, cuda2_mst);
+        // output to file 
+        os << "cuda2," << i
+                << "," << itseed
+                << "," << num_vertices
+                << "," << density
+                << "," << weight_range
+                << "," << runtime
+                << "," << cuda2_mst.sum_weights()
+                << std::endl;
     }
 }
 
