@@ -246,7 +246,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                  int numReplica, int cntRuns, uint64_t seed) {
     for (int i=0; i<numReplica; ++i) {
         // create an undirected graph, using a different seed in each replica
-        ListGraph g;
+        MatrixGraph g;
         uint64_t itseed = seed+i;
         generator(g, num_vertices, 0, weight_range, density, false, itseed);
         // run through all implementations and get runtime
