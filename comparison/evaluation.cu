@@ -252,7 +252,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
         // run through all implementations and get runtime
         double runtime;
 
-        ListGraph cpu_l_mst;
+        /*ListGraph cpu_l_mst;
         runtime = cpuRuntime<ListGraph>(g, cntRuns, cpu_l_mst);
         // output to file 
         os << "cpu_l," << i
@@ -263,6 +263,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << runtime
                 << "," << cpu_l_mst.sum_weights()
                 << std::endl;
+	*/
 #ifdef WITH_BOOST
         // run through boost implementation
         ListGraph boost_mst;
