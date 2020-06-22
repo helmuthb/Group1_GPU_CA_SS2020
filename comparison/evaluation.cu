@@ -349,17 +349,35 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
 
 int main(int argc, char* argv[]) {
     std::cout << "implementation,run,seed,vertices,density,weight_range,runtime,min" << std::endl;
-    runParamSet(std::cout, 100, 5000, 0.5, 3, 1, 42);
-    runParamSet(std::cout, 100, 5000, 0.9, 3, 1, 42);
-    runParamSet(std::cout, 512, 5000, 1.0, 3, 1, 42);
-    runParamSet(std::cout, 1000, 5000, 0.2, 3, 1, 42);
-    runParamSet(std::cout, 1000, 5000, 0.5, 3, 1, 42);
-    runParamSet(std::cout, 1000, 5000, 0.7, 3, 1, 42);
-    runParamSet(std::cout, 1000, 5000, 0.9, 3, 1, 42);
+    //
+    // Test batch: Effects of Density (constant node size)
+    //
     runParamSet(std::cout, 4096, 5000, 0.01, 3, 1, 42);
-    runParamSet(std::cout, 4097, 5000, 0.01, 3, 1, 42);
-    //runParamSet(std::cout, 4096, 5000, 1, 3, 1, 42);
-    runParamSet(std::cout, 5000, 5000, 0.001, 3, 1, 42);
-    runParamSet(std::cout, 10000, 50000, 0.0001, 3, 1, 42);
-    //runParamSet(std::cout, 50000, 50000, 0.00001, 3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 0.05, 3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 0.1,  3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 0.3,  3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 0.5,  3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 0.7,  3, 1, 42);
+    runParamSet(std::cout, 4096, 5000, 1.0,  3, 1, 42);
+
+    // Test batch: Effects of Vertex count (constant density)
+    /*
+    runParamSet(std::cout, 10,    5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 50,    5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 100,   5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 500,   5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 1000 , 5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 5000 , 5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 10000, 5000, 0.1, 3, 1, 42);
+    */
+
+    // Test batch: CUDA1 vs CUDA2
+    /*
+    runParamSet(std::cout, 4095,  5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 4096,  5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 4097,  5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 16383, 5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 16384, 5000, 0.1, 3, 1, 42);
+    runParamSet(std::cout, 16385, 5000, 0.1, 3, 1, 42);
+    */
 }
