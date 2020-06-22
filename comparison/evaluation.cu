@@ -123,19 +123,23 @@ double thrustRuntime(const Graph& g, int cntRuns, Graph& mst) {
     double runtime;
 
     // prepare data for thrust
-    thrust::host_vector<uint32_t> num_edges;
-    thrust::host_vector<uint32_t> idx_edges;
-    thrust::host_vector<uint32_t> target;
-    thrust::host_vector<int32_t> weight;
-    thrustPrepare(g, &num_edges, &idx_edges, &target, &weight);
-    thrust::host_vector<uint32_t> predecessor;
+    const uint32_t V = g.num_vertices();
+    // Each edge is present twice: once from each vertex
+    const uint32_t E = g.num_edges();
+
+    thrust::host_vector<uint2> vertices(V);
+    thrust::host_vector<uint2> edges(2*E);
+    thrustSetup(g, vertices, edges);
+    thrust::host_vector<uint32_t> mst_in(V);
+    thrust::host_vector<uint32_t> mst_out(V);
+    thrust::host_vector<uint32_t> mst_weight(V);
     // allow for warm-up
-    thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+    thrustPrimAlgorithm(vertices, edges, mst_out, mst_in, mst_weight, V, E);
     // now the real test run
     begin = steady_clock::now();
     for (int i=0; i<cntRuns; ++i) {
         // find MST solution
-        thrustPrimAlgorithm(&num_edges, &idx_edges, &target, &weight, &predecessor);
+        thrustPrimAlgorithm(vertices, edges, mst_out, mst_in, mst_weight, V, E);
     }
     end = steady_clock::now();
     runtime = (duration_cast<duration<double>>(end-begin)).count();
@@ -232,7 +236,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << boost_mst.sum_weights()
                 << std::endl;
 #endif
-/*
+/* */
         // run through thrust implementation
         ListGraph thrust_mst;
         runtime = thrustRuntime(g, cntRuns, thrust_mst);
@@ -245,7 +249,7 @@ void runParamSet(std::ostream& os, int num_vertices, int weight_range, float den
                 << "," << runtime
                 << "," << thrust_mst.sum_weights()
                 << std::endl;
-*/
+/* */
         // run through cuda implementation
         ListGraph cuda_mst;
         runtime = cuda2Runtime(g, cntRuns, cuda_mst);

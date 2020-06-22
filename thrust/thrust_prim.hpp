@@ -9,14 +9,14 @@
 /**
  * Prepare for thrust version of Prim's algorith
  */
-void thrustPrepare(const Graph& g, thrust::host_vector<uint32_t>* num_neighbors, thrust::host_vector<uint32_t>* idx_edges,
-                   thrust::host_vector<uint32_t>* target, thrust::host_vector<int32_t>* weight);
+void thrustSetup(const Graph& g, thrust::host_vector<uint2> &vertex_adjacent_count_index, thrust::host_vector<uint2> &edge_target_weight);
 
 /**
  * Prim's algorithm
  */
-void thrustPrimAlgorithm(thrust::host_vector<uint32_t>* num_edges, thrust::host_vector<uint32_t>* idx_edges,
-                          thrust::host_vector<uint32_t>* target, thrust::host_vector<int32_t>* weight,
-                          thrust::host_vector<uint32_t>* predecessors);
+void thrustPrimAlgorithm(const thrust::host_vector<uint2> &vertex_adjacent_count_index, const thrust::host_vector<uint2> &edge_target_weight,
+                         thrust::host_vector<uint32_t> &mst_out, thrust::host_vector<uint32_t> &mst_in,
+                         thrust::host_vector<uint32_t> &mst_weight,
+                         uint32_t V, uint32_t E);
 
 #endif
